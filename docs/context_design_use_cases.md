@@ -15,6 +15,7 @@ See also:
 
 - [docs/radps_use_case_mapping.md](radps_use_case_mapping.md) (Pipeline UC → RADPS context mapping)
 - [docs/current_pipeline_use_cases.md](current_pipeline_use_cases.md) (source Pipeline UCs)
+- [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
 
 Use Case <number>: <title>
 

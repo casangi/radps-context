@@ -1,10 +1,10 @@
 # Pipeline context deep dive: current use cases and architecture notes
 
-This note documents how the current Pipeline uses the runtime **Context** today (as implemented in this repository), with a focus on **use cases** and **implications for next-generation context design**.
+This note documents how the current (legacy) Pipeline uses the runtime **Context** today (as implemented in the legacy Pipeline codebase), with a focus on **use cases** and **implications for next-generation context design**.
 
 ## What “context” means in this codebase
 
-In this repository, the Pipeline “context” is primarily the Python object `pipeline.infrastructure.launcher.Context`, created and managed by `pipeline.infrastructure.launcher.Pipeline`.
+In the legacy Pipeline codebase, the Pipeline “context” is primarily the Python object `pipeline.infrastructure.launcher.Context`, created and managed by `pipeline.infrastructure.launcher.Pipeline`.
 
 The context is simultaneously:
 
@@ -13,7 +13,7 @@ The context is simultaneously:
 - A **cross-stage communication channel** (tasks read/write shared state)
 - A **persistence unit** (pickled to disk via `Context.save()`)
 
-Key implementation references:
+Key implementation references (legacy Pipeline source paths):
 
 - `Context` / `Pipeline`: `pipeline/infrastructure/launcher.py`
 - CLI lifecycle tasks: `pipeline/h/cli/h_init.py`, `pipeline/h/cli/h_save.py`, `pipeline/h/cli/h_resume.py`

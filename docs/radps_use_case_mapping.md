@@ -6,12 +6,14 @@ See also:
 
 - [docs/context_design_use_cases.md](context_design_use_cases.md) (draft RADPS context use cases)
 - [docs/current_pipeline_use_cases.md](current_pipeline_use_cases.md) (source Pipeline use cases)
+- [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
 
 ## Assumptions (from RADPS discussions)
 
 - **Domains**: ALMA WSU and ngVLA.
 - **Data model**: archive inputs (e.g., ASDM) convert to **MeasurementSet v4**; Python ecosystem emphasis.
-- **Scale**: multi-TB artifacts, very large spectral cubes (up to ~1.2M channels), significantly increased SPWs.
+- **Scale**: multi-TB artifacts, very large spectral cubes (up to ~1.2M channels), significantly increased SPWs. These figures should be treated as **top-end outputs**, not the typical case.
+- **Efficiency (common case)**: the context design must scale to larger datasets, but should remain efficient for smaller/more common runs; avoid “worst-case-first” tradeoffs that significantly degrade day-to-day performance.
 - **Execution**: planner service generates a **DAG at runtime**; execution is **distributed (Dask)** with concurrent workers.
 - **State semantics**: shared state must have **ACID semantics** (multi-writer correctness is required).
 - **Operations**: intermediates must remain **locally available** (for pause/inspect/manual intervention); resumability and partial reruns are required.
@@ -19,8 +21,6 @@ See also:
 - **Provenance**: must emit machine-readable manifests/audit trails; determinism is “within numerical precision” and depends on identical inputs/versions/hardware/resources.
 
 ## Scope note (context design)
-
-This document is **specifically about Pipeline Context**.
 
 In RADPS terms, “context” means the **durable run state + artifact/provenance references** needed to:
 
@@ -38,12 +38,19 @@ Out of scope here (though context must *record* their outcomes):
 
 Within that scope, the planner and executor are **actors** that read/write context, and the context store is the system-of-record.
 
-## Use-case relevance mapping (UC1–UC7)
+## Use-case relevance mapping (UC1–UC18)
+
+The Pipeline use cases naturally fall into two groups:
+
+- **UC1–UC7**: how the pipeline is launched/operated (entry points, products, save/resume)
+- **UC8–UC18**: within-execution context interactions (catalog queries, shared state, reporting traversals, snapshot semantics)
 
 Legend:
 - **MUST**: RADPS must directly support this capability
 - **SHOULD**: valuable; can be deferred, narrowed, or implemented differently
 - **WON’T (as-is)**: the current mechanism doesn’t carry forward; replace with an alternative
+
+### Entry-point use cases (UC1–UC7)
 
 | Current UC | Summary (today) | RADPS relevance | RADPS interpretation / notes |
 |---|---|---:|---|
@@ -55,9 +62,9 @@ Legend:
 | UC6 | Weblog generation as product | **MUST** | Preserve weblog/QA reporting, but generation becomes a **reporting pipeline** over the run ledger + artifacts. Must be reproducible and re-renderable post-run. |
 | UC7 | Testing/regression harness | **MUST** | Preserve deterministic run layouts and machine-checkable failure signals. Extend to distributed runs: per-node logs, structured events, and stable run IDs. |
 
-## Internal context use cases (UC8–UC18) relevance
+### Within-execution context interactions (UC8–UC18)
 
-The updated Pipeline note adds fine-grained “inside execution” context interactions (domain metadata queries, calibration library updates, image registries, rendering traversals, MPI snapshotting, etc.). These map cleanly to RADPS **context subsystem responsibilities**.
+UC8–UC18 capture the “inside execution” context interactions (domain metadata queries, calibration library updates, image registries, rendering traversals, snapshot semantics, etc.). These map cleanly to RADPS **context subsystem responsibilities**.
 
 | Current internal UC | What it means in the current Pipeline | RADPS relevance | RADPS context interpretation / requirements |
 |---|---|---:|---|
