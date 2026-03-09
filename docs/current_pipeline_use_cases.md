@@ -2,11 +2,6 @@
 
 This note documents how the current Pipeline uses the runtime **Context** today (as implemented in this repository), with a focus on **use cases** and **implications for next-generation context design**.
 
-See also:
-
-- [docs/radps_use_case_mapping.md](radps_use_case_mapping.md) (which Pipeline UCs carry forward into RADPS)
-- [docs/context_design_use_cases.md](context_design_use_cases.md) (draft RADPS context use cases)
-
 ## What “context” means in this codebase
 
 In this repository, the Pipeline “context” is primarily the Python object `pipeline.infrastructure.launcher.Context`, created and managed by `pipeline.infrastructure.launcher.Pipeline`.
@@ -26,7 +21,7 @@ Key implementation references:
 - PPR-driven execution loops:
   - ALMA: `pipeline/infrastructure/executeppr.py` (used by `pipeline/runpipeline.py`)
   - VLA: `pipeline/infrastructure/executevlappr.py` (used by `pipeline/runvlapipeline.py`)
-- XML “procedure” execution for devs: `pipeline/recipereducer.py`
+- XML “procedure” execution (production + dev): `pipeline/recipereducer.py`
 
 ## Context lifecycle (the canonical flow)
 
@@ -130,11 +125,13 @@ This list is intended to be directly reusable for next-gen context requirements.
 - Ability to inspect/modify a live in-memory context between stages
 - Convenient weblog rendering for stage-by-stage debugging
 
-### UC4 — Developer “procedure” execution from XML recipes
+### UC4 — “Procedure” execution from XML recipes (driver-managed batch pathway)
 
-**Actor**: pipeline developer
+**Actor**: operations / automated processing (driver-managed batch), pipeline developer (local/debug)
 
 **Entry point**: `pipeline.recipereducer.reduce(vis=[...], procedure='procedure_*.xml', ...)`
+
+In production this is typically invoked non-interactively as a batch job and orchestrated by a higher-level driver that selects the procedure, input datasets, and output directories.
 
 **Core flow**:
 
@@ -146,6 +143,7 @@ This list is intended to be directly reusable for next-gen context requirements.
 
 - Must allow overriding the context name to route output to a named directory
 - Must tolerate partial execution (`startstage`, `exitstage`)
+- Must support driver orchestration needs (non-interactive execution, machine-detectable success/failure, predictable artifact locations)
 
 ### UC5 — Save/resume/relocate context
 
@@ -188,129 +186,6 @@ This list is intended to be directly reusable for next-gen context requirements.
 
 - Deterministic paths and predictable outputs
 - Ability to detect failures *outside* of raw task exceptions (e.g., weblog rendering failures)
-
-## Observed architectural properties (what the code implies)
-
-### The pipeline has two orchestration planes
-
-- **Plan A: task-driven**: direct task calls via CLI wrappers (`pipeline/h/cli/utils.py`)
-- **Plan B: command-list-driven**: PPR command lists executed by `executeppr.py` / `executevlappr.py`
-
-Both eventually converge on the same task implementations, but they differ in:
-
-- How inputs are marshalled (PPR dict vs direct function call)
-- How session paths are selected (SCIPIPE_ROOTDIR vs local dev assumptions)
-- How “resume” is modeled (PPR breakpoint logic vs explicit `h_resume`)
-
-### The context is a “big ball of state”, by design
-
-The current approach is extremely flexible for a long-running, stateful CASA session, but it also means:
-
-- No explicit schema boundary between:
-  - persisted state
-  - ephemeral caches
-  - runtime-only services
-  - large artifacts
-- Tasks can (and do) add new fields in an ad-hoc way over time
-
-### Persistence is pickle-based
-
-Pickle works for short-lived resume/debug use cases, but it is:
-
-- fragile across version changes
-- risky if used as a long-term archive format
-- not friendly to multi-writer or multi-process updates
-
-The codebase already mitigates size by proxying stage results to disk, but the *context itself* remains a potentially large and unstable object graph.
-
-## Improvement suggestions for a next-generation context design
-
-These suggestions are intentionally phrased as **requirements and design directions**, not “rewrite everything immediately”.
-
-### 1) Split “context data” from “context services”
-
-Today, the same object mixes:
-
-- structured metadata
-- caching
-- filesystem layout
-- libraries (calibration/image libraries)
-- methods and convenience accessors
-
-A next-gen design should define a minimal, explicit **ContextData** model that is:
-
-- typed
-- schema-versioned
-- serializable in a stable format (e.g. JSON/MsgPack/Arrow)
-
-Then attach runtime-only **services** (CASA tool handles, caches, heuristics engines) around it.
-
-### 2) Introduce a ContextStore interface
-
-Replace “pickle a Python object graph” with a storage abstraction:
-
-- `ContextStore.get(context_id)`
-- `ContextStore.put(context_id, patch/event)`
-- `ContextStore.list_runs(...)`
-
-Backends can start simple (SQLite) and grow (Postgres/object store) without changing task logic.
-
-### 3) Make state transitions explicit (event-sourced or patch-based)
-
-The repository already has an event bus (`pipeline.infrastructure.eventbus`).
-
-A next-gen design can leverage that by recording:
-
-- task started/completed
-- result accepted
-- key state changes (added MS, updated cal library, exported products)
-
-This yields:
-
-- reproducibility (what changed when)
-- easier partial rebuilds
-- better distributed orchestration
-
-### 4) Treat large artifacts as artifacts, not context fields
-
-A consistent pattern is needed for large arrays/images/tables:
-
-- store in an artifact store (`products/`, object store, or CAS tables)
-- store only *references* in context data
-
-This avoids “accidentally pickle a GiB array” failure modes and makes distribution/cloud execution more realistic.
-
-### 5) Remove reliance on global interactive stacks for non-interactive execution
-
-The global `pipeline.h.cli.cli.stack` is convenient in interactive sessions, but it makes composition and concurrency hard.
-
-Next-gen design direction:
-
-- make tasks accept an explicit context handle
-- keep interactive convenience wrappers, but do not make them the core contract
-
-### 6) Unify orchestration
-
-Long-term, it will be simpler if:
-
-- PPR execution and “procedure XML” execution share a single execution engine
-- both compile into a common intermediate representation (a DAG or linear plan)
-
-Even if execution stays sequential, having a common plan representation will help:
-
-- retries
-- provenance
-- partial execution
-- parallelization boundaries
-
-### 7) Versioned compatibility policy
-
-The notebook in this repo explicitly calls out the lack of API/backward-compat guarantees. For next-gen work, pick a stance:
-
-- **Operational context**: must be resumable within a supported release window
-- **Development context**: best-effort
-
-…and encode that into the serialization/store layer (schema versions + migrations).
 
 ## Fine-grained internal use cases (within-execution context interactions)
 
@@ -615,6 +490,129 @@ The following describe scenarios that the current context design *does not suppo
 - A stable, queryable context API (REST/gRPC) that external systems can poll or subscribe to
 - Webhook / event notification support for state transitions (stage complete, QA score below threshold)
 - A standard schema for context summaries consumable by external systems
+
+## Observed architectural properties (what the code implies)
+
+### The pipeline has two orchestration planes
+
+- **Plan A: task-driven**: direct task calls via CLI wrappers (`pipeline/h/cli/utils.py`)
+- **Plan B: command-list-driven**: PPR command lists executed by `executeppr.py` / `executevlappr.py`
+
+Both eventually converge on the same task implementations, but they differ in:
+
+- How inputs are marshalled (PPR dict vs direct function call)
+- How session paths are selected (SCIPIPE_ROOTDIR vs local dev assumptions)
+- How “resume” is modeled (PPR breakpoint logic vs explicit `h_resume`)
+
+### The context is a “big ball of state”, by design
+
+The current approach is extremely flexible for a long-running, stateful CASA session, but it also means:
+
+- No explicit schema boundary between:
+  - persisted state
+  - ephemeral caches
+  - runtime-only services
+  - large artifacts
+- Tasks can (and do) add new fields in an ad-hoc way over time
+
+### Persistence is pickle-based
+
+Pickle works for short-lived resume/debug use cases, but it is:
+
+- fragile across version changes
+- risky if used as a long-term archive format
+- not friendly to multi-writer or multi-process updates
+
+The codebase already mitigates size by proxying stage results to disk, but the *context itself* remains a potentially large and unstable object graph.
+
+## Improvement suggestions for a next-generation context design
+
+These suggestions are intentionally phrased as **requirements and design directions**, not “rewrite everything immediately”.
+
+### 1) Split “context data” from “context services”
+
+Today, the same object mixes:
+
+- structured metadata
+- caching
+- filesystem layout
+- libraries (calibration/image libraries)
+- methods and convenience accessors
+
+A next-gen design should define a minimal, explicit **ContextData** model that is:
+
+- typed
+- schema-versioned
+- serializable in a stable format (e.g. JSON/MsgPack/Arrow)
+
+Then attach runtime-only **services** (CASA tool handles, caches, heuristics engines) around it.
+
+### 2) Introduce a ContextStore interface
+
+Replace “pickle a Python object graph” with a storage abstraction:
+
+- `ContextStore.get(context_id)`
+- `ContextStore.put(context_id, patch/event)`
+- `ContextStore.list_runs(...)`
+
+Backends can start simple (SQLite) and grow (Postgres/object store) without changing task logic.
+
+### 3) Make state transitions explicit (event-sourced or patch-based)
+
+The repository already has an event bus (`pipeline.infrastructure.eventbus`).
+
+A next-gen design can leverage that by recording:
+
+- task started/completed
+- result accepted
+- key state changes (added MS, updated cal library, exported products)
+
+This yields:
+
+- reproducibility (what changed when)
+- easier partial rebuilds
+- better distributed orchestration
+
+### 4) Treat large artifacts as artifacts, not context fields
+
+A consistent pattern is needed for large arrays/images/tables:
+
+- store in an artifact store (`products/`, object store, or CAS tables)
+- store only *references* in context data
+
+This avoids “accidentally pickle a GiB array” failure modes and makes distribution/cloud execution more realistic.
+
+### 5) Remove reliance on global interactive stacks for non-interactive execution
+
+The global `pipeline.h.cli.cli.stack` is convenient in interactive sessions, but it makes composition and concurrency hard.
+
+Next-gen design direction:
+
+- make tasks accept an explicit context handle
+- keep interactive convenience wrappers, but do not make them the core contract
+
+### 6) Unify orchestration
+
+Long-term, it will be simpler if:
+
+- PPR execution and “procedure XML” execution share a single execution engine
+- both compile into a common intermediate representation (a DAG or linear plan)
+
+Even if execution stays sequential, having a common plan representation will help:
+
+- retries
+- provenance
+- partial execution
+- parallelization boundaries
+
+### 7) Versioned compatibility policy
+
+The notebook in this repo explicitly calls out the lack of API/backward-compat guarantees. For next-gen work, pick a stance:
+
+- **Operational context**: must be resumable within a supported release window
+- **Development context**: best-effort
+
+…and encode that into the serialization/store layer (schema versions + migrations).
 
 ## Suggested "context contract" to carry forward
 
