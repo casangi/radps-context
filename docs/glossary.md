@@ -60,6 +60,8 @@ This glossary defines common distributed-systems and data-management terms used 
 
 - **MeasurementSet (MS)**: A radio astronomy dataset format used by CASA and the pipeline. Many context queries are “MS-centric” (look up by MS name, filter by MS type, map SPW IDs).
 
+- **Orchestration driver**: A front-end that creates and drives execution against the pipeline context. The legacy pipeline supports multiple orchestration drivers: PPR command lists (ALMA/VLA automated processing), XML procedures (production recipes), and interactive task calls (developer/operator sessions). The context must remain a stable state contract across all drivers (Pipeline UC1).
+
 - **PPR**: Pipeline Processing Request; an XML bundle used to drive automated processing (inputs + metadata + an ordered command list).
 
 - **Pickle**: Python’s built-in object serialization format used by the legacy pipeline for persisting context and proxying results. Convenient for short-lived resume/debug, but fragile across version changes and not designed for multi-writer concurrency.

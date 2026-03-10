@@ -42,25 +42,25 @@ Within that scope, the planner and executor are **actors** that read/write conte
 
 The Pipeline use cases naturally fall into two groups:
 
-- **UC1–UC7**: how the pipeline is launched/operated (entry points, products, save/resume)
-- **UC8–UC18**: within-execution context interactions (catalog queries, shared state, reporting traversals, snapshot semantics)
+- **UC1–UC7**: system-level context capabilities (orchestration support, identity/layout, stage history, state transitions, persistence, read-only access, inspection/debugging)
+- **UC8–UC18**: fine-grained within-execution context interactions (catalog queries, shared state, reporting traversals, snapshot semantics)
 
 Legend:
 - **MUST**: RADPS must directly support this capability
 - **SHOULD**: valuable; can be deferred, narrowed, or implemented differently
 - **WON’T (as-is)**: the current mechanism doesn’t carry forward; replace with an alternative
 
-### Entry-point use cases (UC1–UC7)
+### System-level use cases (UC1–UC7)
 
 | Current UC | Summary (today) | RADPS relevance | RADPS interpretation / notes |
 |---|---|---:|---|
-| UC1 | Operate via PPR (ALMA) | **MUST** | Replace PPR XML “command lists” with a **planner-produced DAG/plan**. Preserve operational “run from recipe + inputs” semantics, breakpoint/resume behavior, and standardized outputs (weblog/manifest). |
-| UC2 | Operate via PPR (VLA) | **WON’T (as-is)** | RADPS does not target VLA processing. If a legacy ingest format is needed for ngVLA, treat it as an **input adapter** compiled into a planner-produced DAG/plan (not a VLA-specific execution path). |
-| UC3 | Interactive task-by-task execution | **SHOULD** | Preserve as a **supported operator/dev mode**: inspect state, run a subset of graph nodes, re-run with modified parameters. Must be safe under ACID semantics (no “hidden globals”). |
-| UC4 | Developer XML “procedure” execution | **WON’T (as-is)** | Keep the intent (“execute a recipe/procedure”), but converge on the planner’s plan representation. XML may remain as a legacy authoring format, compiled to the DAG. |
-| UC5 | Save/resume/relocate context | **MUST** | Replace pickle with **DB-backed run ledger + artifact registry**. Relocation becomes “artifact locations are references”, not embedded paths. Support restart on a different node/cluster. |
-| UC6 | Weblog generation as product | **MUST** | Preserve weblog/QA reporting, but generation becomes a **reporting pipeline** over the run ledger + artifacts. Must be reproducible and re-renderable post-run. |
-| UC7 | Testing/regression harness | **MUST** | Preserve deterministic run layouts and machine-checkable failure signals. Extend to distributed runs: per-node logs, structured events, and stable run IDs. |
+| UC1 | Support multiple orchestration drivers | **MUST** | Replace PPR/XML/interactive driver-specific entry points with a **planner-produced DAG/plan**. The context must remain the stable state contract regardless of how the run was initiated. Preserve breakpoint/resume semantics. |
+| UC2 | Provide run identity and filesystem layout | **MUST** | Replace embedded filesystem paths with an **artifact registry** backed by stable IDs and location references. Run identity becomes a first-class `run_id` in the context store. Relocation becomes “artifact locations are references”, not embedded paths. |
+| UC3 | Maintain an ordered stage history and progress tracking | **MUST** | Replace the in-memory `context.results` timeline with a **run ledger**: per-node attempt records with status, timing, and QA outcomes. Stage numbering becomes node execution ordering within the DAG. |
+| UC4 | Act as the cross-stage state transition mechanism | **MUST** | Replace `Results.merge_with_context()` with **transactional updates** to a shared ACID store. Tasks emit patches/events rather than mutating a shared object. Must support concurrent writers. |
+| UC5 | Persist and restore a processing session | **MUST** | Replace pickle-based persistence with **DB-backed run ledger + artifact registry**. Checkpoints become explicit context objects rather than whole-object snapshots. Support restart on a different node/cluster. |
+| UC6 | Support read-only consumers (weblog, QA, export) | **MUST** | Provide **consistent read-only snapshot views** of context for reporting, QA scoring, and export. Must be servable without access to worker memory. Support re-rendering post-run. |
+| UC7 | Support inspection, debugging, and regression harnesses | **MUST** | Preserve deterministic run layouts and machine-checkable failure signals. Extend to distributed runs: per-node logs, structured events, and stable run IDs. Context must be inspectable without unpickling. |
 
 ### Within-execution context interactions (UC8–UC18)
 

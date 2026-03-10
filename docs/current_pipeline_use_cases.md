@@ -1,10 +1,10 @@
 # Pipeline context deep dive: current use cases and architecture notes
 
-This note documents how the current (legacy) Pipeline uses the runtime **Context** today (as implemented in the legacy Pipeline codebase), with a focus on **use cases** and **implications for next-generation context design**.
+This note documents how the current Pipeline uses the runtime **Context** today (as implemented in this repository), with a focus on **use cases** and **implications for next-generation context design**.
 
 ## What “context” means in this codebase
 
-In the legacy Pipeline codebase, the Pipeline “context” is primarily the Python object `pipeline.infrastructure.launcher.Context`, created and managed by `pipeline.infrastructure.launcher.Pipeline`.
+In this repository, the Pipeline “context” is primarily the Python object `pipeline.infrastructure.launcher.Context`, created and managed by `pipeline.infrastructure.launcher.Pipeline`.
 
 The context is simultaneously:
 
@@ -13,7 +13,7 @@ The context is simultaneously:
 - A **cross-stage communication channel** (tasks read/write shared state)
 - A **persistence unit** (pickled to disk via `Context.save()`)
 
-Key implementation references (legacy Pipeline source paths):
+Key implementation references:
 
 - `Context` / `Pipeline`: `pipeline/infrastructure/launcher.py`
 - CLI lifecycle tasks: `pipeline/h/cli/h_init.py`, `pipeline/h/cli/h_save.py`, `pipeline/h/cli/h_resume.py`
@@ -28,8 +28,8 @@ Key implementation references (legacy Pipeline source paths):
 ### 1) Create a new session
 
 - **Interactive** / scripted use: call `h_init()`.
-  - `h_init()` constructs a `launcher.Pipeline(...)` and stores it into a global interactive “stack” (`pipeline.h.cli.cli.stack`).
-  - It returns the newly created `Context`.
+  - `h_init()` constructs a `launcher.Pipeline(...)` and returns the newly created `Context`.
+  - In interactive sessions, helper code may also retain a handle to the current context for convenience.
 
 ### 2) Load data and metadata
 
@@ -41,9 +41,8 @@ Key implementation references (legacy Pipeline source paths):
 
 ### 3) Execute tasks (stages)
 
-- A “task” is usually a class-based pipeline stage registered in the task registry (`pipeline.infrastructure.task_registry`).
-- CLI functions are thin wrappers; `pipeline/h/cli/utils.py` resolves task name → inputs → task class.
-- Each task returns a `Results` object (or list), then `Results.accept(context)` is invoked.
+- Tasks execute against the current in-memory context and return a `Results` object (or list).
+- After a task completes, `Results.accept(context)` is invoked to record the stage outcome and update shared state.
 
 ### 4) Accept results and mutate context
 
@@ -64,132 +63,90 @@ Inside `pipeline/infrastructure/basetask.py`:
 
 This persistence model is used by:
 
-- Breakpoint/resume in PPR execution (`executeppr(..., bpaction='resume')`)
+- Driver-managed breakpoint/resume (`executeppr(..., bpaction='resume')`)
 - Developer workflows (debugging, “pause and inspect”, regression reproduction)
 
 ## Current use cases (as implemented)
 
 This list is intended to be directly reusable for next-gen context requirements.
 
-### UC1 — Operate the pipeline via PPR (ALMA)
+### UC1 — Support multiple orchestration drivers
 
-**Actor**: operations / automated processing
+**Actor**: operations / automated processing (including driver-managed batch), pipeline developer / power user
 
-**Entry point**: run inside CASA via `casa --nogui --nologger -c runpipeline.py <PPR.xml>`
-
-**Core flow**:
-
-- `runpipeline.py` → `pipeline.infrastructure.executeppr.executeppr(ppr_file, importonly=...)`
-- PPR provides:
-  - Relative paths / ASDM list
-  - Procedure/recipe name
-  - A list of commands with arguments
-- `executeppr()` creates a new context or resumes a prior one
-- Executes commands sequentially, with special handling for import/restore stages
+The context is created and consumed by multiple front-ends (PPR command lists, XML procedures, or interactive task calls). The context must remain the stable state contract across these drivers.
 
 **Context requirements**:
 
-- Must store project metadata from the PPR
-- Must record task results + tracebacks
-- Must support “export on exception” (copy error exit + tar weblog)
-- Must support breakpoint-driven stop/resume semantics
+- Must be createable and resumable from non-interactive and interactive drivers
+- Must support driver-injected run metadata (recipe/procedure name, project IDs, performance parameters)
+- Must tolerate partial execution controls (`startstage`, `exitstage`) and breakpoint-driven stop/resume semantics
+- Must provide machine-detectable success/failure signals via persisted results + tracebacks + stable artifact locations
 
-### UC2 — Operate the pipeline via PPR (VLA)
+### UC2 — Provide run identity and filesystem layout
 
-**Actor**: operations / automated processing
-
-**Entry point**: `casa --nogui --nologger -c runvlapipeline.py <PPR.xml>`
-
-**Distinctive behaviors**:
-
-- `executevlappr.py` has VLA-specific rules (e.g., skip `hifv_hanning` when `SPECTRAL_MODE=True`)
-- Project structure is simplified compared to ALMA
+**Actor**: tasks, renderers, export/report code, operators
 
 **Context requirements**:
 
-- Must handle VLA-specific control flags (“intent-like” values)
+- Must define stable, discoverable path roots (`output_dir`, `report_dir`, `products_dir`) and log locations
+- Must allow deterministic, named run directories (context name routing)
+- Must support relocation semantics where feasible (especially for results proxies and report/products layout)
 
-### UC3 — Interactive “task-by-task” execution
+### UC3 — Maintain an ordered stage history and progress tracking
 
-**Actor**: pipeline developer / power user
-
-**Entry point**: a Python/CASA session, typically:
-
-- `import pipeline; pipeline.initcli()`
-- `context = h_init()`
-- then call tasks directly: `hifa_importdata(...)`, `hifa_flagdata()`, ...
+**Actor**: workflow engine, tasks, report generators, operators
 
 **Context requirements**:
 
-- A stable, discoverable task interface (`h_*`, `hif_*`, `hifa_*`, `hifv_*`, `hsd_*`, `hsdn_*`)
-- Ability to inspect/modify a live in-memory context between stages
-- Convenient weblog rendering for stage-by-stage debugging
+- Must maintain an ordered results timeline (`context.results`) suitable for inspection, reporting, and export
+- Must preserve per-stage tracebacks and timings (including timetracker integration)
+- Must support stage numbering / task counters that remain coherent across resumes
 
-### UC4 — “Procedure” execution from XML recipes (driver-managed batch pathway)
+### UC4 — Act as the cross-stage state transition mechanism
 
-**Actor**: operations / automated processing (driver-managed batch), pipeline developer (local/debug)
-
-**Entry point**: `pipeline.recipereducer.reduce(vis=[...], procedure='procedure_*.xml', ...)`
-
-In production this is typically invoked non-interactively as a batch job and orchestrated by a higher-level driver that selects the procedure, input datasets, and output directories.
-
-**Core flow**:
-
-- Load an XML procedure from `pipeline/recipes/`
-- Translate `<ProcessingCommand>` nodes to CLI task calls
-- Run tasks sequentially; save context at the end
+**Actor**: all tasks
 
 **Context requirements**:
 
-- Must allow overriding the context name to route output to a named directory
-- Must tolerate partial execution (`startstage`, `exitstage`)
-- Must support driver orchestration needs (non-interactive execution, machine-detectable success/failure, predictable artifact locations)
+- Must support atomic acceptance of task outputs via `Results.merge_with_context(context)`
+- Must allow tasks to publish shared state that downstream tasks can consume (calibration state, imaging state, artifact registries)
+- Must keep the in-memory working set bounded (e.g., via per-stage `ResultsProxy` pickles)
 
-### UC5 — Save/resume/relocate context
+### UC5 — Persist and restore a processing session
 
-**Actor**: developer, operations (breakpoint resume)
-
-**Entry points**:
-
-- `h_save()` / `h_resume()`
-- `Pipeline(context='last')`
+**Actor**: operators, workflow engines, developers
 
 **Context requirements**:
 
-- Persistence must be resilient enough for “same version” resume
-- Relocation must work for results proxies (only basenames are stored)
+- Must serialize enough state to resume within a compatible version window (`Context.save()` / `h_save()` / `h_resume()`)
+- Must preserve the results timeline via proxies on disk (not just in-memory objects)
+- Must support relocation at least for results proxies (basenames stored) and common output layout
 
-### UC6 — Weblog generation as a first-class product
+### UC6 — Support read-only consumers (weblog, QA, export)
 
-**Actor**: operations + QA + developers
-
-**Implementation**:
-
-- Weblog is rendered after each top-level stage (in `Results.accept`)
-- Timetracker + eventbus capture stage timing and abnormal exits
+**Actor**: weblog renderers, QA handlers, export/report generators
 
 **Context requirements**:
 
-- Must supply stable paths: `output_dir`, `report_dir`, `products_dir`
-- Must expose `context.results` in a form that renderers can traverse
+- Must provide read-only traversal of the full results timeline + key metadata for rendering and QA
+- Must expose run paths and project/observing metadata needed for report labeling and packaging
 
-### UC7 — Testing and regression harness
+### UC7 — Support inspection, debugging, and regression harnesses
 
-**Actor**: CI, developers
-
-**Relevant components**:
-
-- `tests/testing_utils.py` (PipelineTester)
-- Rendering failure detection reads the `*.timetracker` database
+**Actor**: developers, CI, operations
 
 **Context requirements**:
 
-- Deterministic paths and predictable outputs
-- Ability to detect failures *outside* of raw task exceptions (e.g., weblog rendering failures)
+- Must be inspectable enough to diagnose failures (what ran, what data was loaded, what state was produced)
+- Must provide deterministic paths/outputs that a harness can validate
+- Must surface failures beyond raw task exceptions (e.g., weblog rendering failures captured via timetracker)
 
 ## Fine-grained internal use cases (within-execution context interactions)
 
-The 7 use cases above describe *when and how* the pipeline is launched. The use cases below describe *how the context is consumed and mutated inside a running pipeline*, organized by the subsystem that interacts with it. These are the patterns that constrain any replacement context design.
+The use cases above describe the context contract at a system level. The use cases below describe *how the context is consumed and
+mutated inside a running pipeline*, organized by the subsystem that interacts with it. These concrete access/mutation patterns are what
+will constrain any replacement context design.
 
 ### UC8 — Domain metadata querying (`context.observing_run`)
 
@@ -391,7 +348,7 @@ These are typically one-time writes at session start, read many times by tasks a
 
 **Impact**: the event bus is an underutilized asset. A future design could elevate it to the primary state mutation channel (event-source pattern), enabling audit trails, undo, and distributed observation.
 
-## Use cases the current pipeline cannot handle
+## Use cases the current context design cannot handle
 
 The following describe scenarios that the current context design *does not support* but that could be valuable in a future architecture.
 
@@ -423,7 +380,7 @@ The following describe scenarios that the current context design *does not suppo
 
 **Problem**: the context is a Python object graph, tightly coupled to CASA's Python runtime. Non-Python clients (C++, Julia, JavaScript dashboards) cannot access it.
 
-**Why it matters**: next-gen tools (e.g., browser-based monitoring dashboards, C++ processing kernels, or notebook UIs) need to query pipeline state.
+**Why it matters**: next-gen tools (e.g., browser-based monitoring dashboards, C++ processing kernels, or notebook UIs) need to query context state.
 
 **What would be needed**:
 
@@ -433,7 +390,7 @@ The following describe scenarios that the current context design *does not suppo
 
 ### FUC4 — Streaming / incremental processing
 
-**Problem**: the pipeline assumes all data is available at session start. It cannot process data as it arrives from the correlator or archive.
+**Problem**: the current context/session model assumes all data is available at session start. It cannot process data as it arrives from the correlator or archive.
 
 **Why it matters**: real-time or near-real-time QA during observations would improve operational efficiency.
 
@@ -453,7 +410,7 @@ The following describe scenarios that the current context design *does not suppo
 
 - Immutable snapshots of context state per-stage (event sourcing)
 - Hashing of all task inputs (context fields + parameters) for cache invalidation / reproducibility tokens
-- Ability to "replay" a pipeline run from the event log
+- Ability to replay a run from the event log
 
 ### FUC6 — Fine-grained access control / multi-tenant context
 
@@ -493,16 +450,16 @@ The following describe scenarios that the current context design *does not suppo
 
 ## Observed architectural properties (what the code implies)
 
-### The pipeline has two orchestration planes
+### The Context is used across two orchestration planes
 
-- **Plan A: task-driven**: direct task calls via CLI wrappers (`pipeline/h/cli/utils.py`)
-- **Plan B: command-list-driven**: PPR command lists executed by `executeppr.py` / `executevlappr.py`
+- **Plane A: task-driven**: direct task calls (often via CLI wrappers in `pipeline/h/cli/`)
+- **Plane B: command-list-driven**: PPR and XML procedure command lists executed by `executeppr.py` / `executevlappr.py` and `recipereducer.py`
 
-Both eventually converge on the same task implementations, but they differ in:
+Both converge on the same task implementations, but from a context perspective they differ in:
 
-- How inputs are marshalled (PPR dict vs direct function call)
-- How session paths are selected (SCIPIPE_ROOTDIR vs local dev assumptions)
-- How “resume” is modeled (PPR breakpoint logic vs explicit `h_resume`)
+- How inputs are marshalled (PPR dict / XML procedure args vs direct function call)
+- How session paths are selected and recorded in context (e.g., SCIPIPE_ROOTDIR-driven layouts vs local/dev assumptions)
+- How “resume” is initiated (driver-level breakpoint logic vs explicit `h_resume`), even though the underlying persisted context is the same
 
 ### The context is a “big ball of state”, by design
 
@@ -591,19 +548,16 @@ Next-gen design direction:
 - make tasks accept an explicit context handle
 - keep interactive convenience wrappers, but do not make them the core contract
 
-### 6) Unify orchestration
+### 6) Represent the execution plan as context data (optional, but context-relevant)
 
-Long-term, it will be simpler if:
+Independent of which driver launches the pipeline, a next-gen context design can benefit from recording the effective execution plan
+as data (linear plan or DAG) alongside the run state.
 
-- PPR execution and “procedure XML” execution share a single execution engine
-- both compile into a common intermediate representation (a DAG or linear plan)
+This supports context-centric capabilities like:
 
-Even if execution stays sequential, having a common plan representation will help:
-
-- retries
-- provenance
-- partial execution
-- parallelization boundaries
+- provenance (what was intended to run vs what actually ran)
+- partial execution and targeted re-runs
+- clearer boundaries for snapshotting, caching, and parallelization
 
 ### 7) Versioned compatibility policy
 

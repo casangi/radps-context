@@ -66,23 +66,24 @@ Use Case UC1: Initialize or Load a Run Context
     Actors:
         Operator (human or automation), Planner service, Context Store.
     Goals:
-        Create a new run record with stable identifiers and initial metadata, or load an existing run for resume.
+        Create a new run record with stable identifiers, initial metadata, and run-level location configuration, or load an existing run for resume. The context must be driver-agnostic: any orchestration front-end (automated batch, interactive session, recipe evaluator) must produce an equivalent run record, and the context contract must remain stable across drivers (Pipeline UC1). Run identity and artifact location layout must be first-class context data (Pipeline UC2).
     Preconditions:
         Inputs are identified (dataset IDs/paths); caller is authorized to create or access the run.
     Postconditions / Outputs:
-        A `run_id` exists with initial run metadata; a “current plan” slot is empty or points to an existing `plan_id`.
+        A `run_id` exists with initial run metadata; a “current plan” slot is empty or points to an existing `plan_id`. Run-level location configuration (working/products/report roots) is recorded, either as explicit paths or as artifact-registry location policies.
     Context Data / Artifacts:
-        Writes run metadata (domain, policy bundle, versions, timestamps); may record initial working/products/report locations.
+        Writes run metadata (domain, policy bundle, versions, timestamps, orchestration driver identity); records run-level location configuration (output/report/products roots or artifact-location policies). May accept driver-injected metadata (recipe/procedure name, project IDs, performance parameters).
     Transaction / Idempotency Notes:
         Create-run must be atomic; repeated create requests must not create duplicate runs (idempotent by client token or external ID).
     Observability / Audit:
-        Record a RunCreated event (who/when/what inputs/policy).
+        Record a RunCreated event (who/when/what inputs/policy/driver).
     Basic Flow:
-        1. Actor submits create/load request with minimal metadata.
+        1. Actor submits create/load request with minimal metadata (including driver identity and location configuration).
         2. Context Store validates authorization and required fields.
         3. Context Store creates the run record (or returns the existing run) and returns `run_id`.
     Alternative Flows (optional):
         - Load fails because the run/version is unsupported; system returns a structured incompatibility error.
+        - Driver submits additional metadata (project IDs, performance parameters) as part of creation; Context Store records these as immutable-after-init run metadata.
 
 Use Case UC2: Persist a Plan Representation (Plan Registration)
 
@@ -113,10 +114,10 @@ Use Case UC2: Persist a Plan Representation (Plan Registration)
     Alternative Flows (optional):
         - Validation fails (schema/version mismatch); plan is rejected with a clear error.
 
-Use Case UC3: Record a Node Attempt Lifecycle (Start/Finish/Retry)
+Use Case UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start/Finish/Retry)
 
     Relevant Stakeholders
-        Operations (recoverability), QA/review, developers (debugging), reporting.
+        Operations (recoverability), QA/review, developers (debugging), reporting, regression harnesses.
     Frequency:
         Very high (per executed node attempt).
     Importance:
@@ -124,25 +125,26 @@ Use Case UC3: Record a Node Attempt Lifecycle (Start/Finish/Retry)
     Actors:
         Executor/worker, Context Store.
     Goals:
-        Track node execution state under retries and failures, with consistent status and timing.
+        Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for reporting, progress tracking, export, and regression validation (Pipeline UC3, UC7). Node ordering within the DAG replaces legacy stage numbering and must remain coherent across resumes.
     Preconditions:
         `run_id` and `plan_id` exist; `node_id` exists in the plan; worker is authorized to update run state.
     Postconditions / Outputs:
-        Attempt record(s) exist with `attempt_id`; node status transitions are recorded; failures have structured error summaries.
+        Attempt record(s) exist with `attempt_id`; node status transitions are recorded; failures have structured error summaries. The run ledger exposes an ordered execution timeline (by node/attempt completion) that consumers can traverse for reporting and debugging.
     Context Data / Artifacts:
-        Writes attempt state, timestamps, worker identity, and optional resource summaries.
+        Writes attempt state, timestamps, worker identity, tracebacks, QA outcome summaries, and optional resource summaries.
     Transaction / Idempotency Notes:
-        State transitions must be ACID and monotonic; attempt start/finish must be idempotent (safe to retry on network failure).
+        State transitions must be ACID and monotonic; attempt start/finish must be idempotent (safe to retry on network failure). The ordered execution history must be consistent under concurrent attempt completions.
     Observability / Audit:
-        Emit NodeAttemptStarted/Finished events; attach tracebacks and error codes where applicable.
+        Emit NodeAttemptStarted/Finished events; attach tracebacks and error codes where applicable. The execution history itself serves as the primary progress-tracking and debugging interface.
     Basic Flow:
         1. Worker requests to start an attempt for a node.
         2. Context Store creates `attempt_id` and marks attempt RUNNING.
         3. Worker completes work and submits completion status and summary.
-        4. Context Store marks attempt SUCCEEDED/FAILED and updates node-level derived status.
+        4. Context Store marks attempt SUCCEEDED/FAILED, updates node-level derived status, and appends to the ordered execution history.
     Alternative Flows (optional):
         - Worker crashes mid-attempt; Context Store detects lost heartbeats and marks attempt LOST/FAILED for retry.
         - Duplicate completion arrives; Context Store ignores it (idempotent) or returns existing completion.
+        - Regression harness queries the execution history to validate deterministic outputs, durations, and failure signals across runs.
 
 Use Case UC4: Register Produced Artifacts with Lineage
 
@@ -400,33 +402,34 @@ Use Case UC12: Update Imaging State (Schema’d Scratch Pad)
     Alternative Flows (optional):
         - Schema/version mismatch; update rejected with required migration/version info.
 
-Use Case UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering
+Use Case UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
 
     Relevant Stakeholders
-        QA, weblog/report generation, developers.
+        QA, weblog/report generation, developers, CI/regression harnesses, operations.
     Frequency:
         High.
     Importance:
         High.
     Actors:
-        QA/reporting service, Context Store.
+        QA/reporting service, debugging/inspection tools, CI harness, Context Store.
     Goals:
-        Provide a consistent read view of run state and artifact registry for rendering/scoring without depending on worker memory.
+        Provide a consistent read view of run state and artifact registry for rendering/scoring without depending on worker memory. Must also support inspection and debugging use cases: diagnosing failures (what ran, what data was loaded, what state was produced), validating deterministic outputs, and surfacing failures beyond raw task exceptions (Pipeline UC6, UC7).
     Preconditions:
         A checkpoint exists or a consistent snapshot boundary is defined (e.g., “as of attempt X completion”).
     Postconditions / Outputs:
-        Snapshot view is consumable; optional derived products (reports) can be produced and registered.
+        Snapshot view is consumable; optional derived products (reports) can be produced and registered. Debugging tools can traverse the snapshot without requiring access to the worker runtime.
     Context Data / Artifacts:
-        Reads ledger + registry + annotations.
+        Reads ledger + registry + annotations + execution history (UC3).
     Transaction / Idempotency Notes:
         Snapshot reads must be consistent; re-rendering should be deterministic within declared policy.
     Observability / Audit:
-        Record snapshot boundary identifiers used by the report.
+        Record snapshot boundary identifiers used by the report or inspection session.
     Basic Flow:
         1. Service requests a snapshot for `run_id` at a boundary.
         2. Context Store serves a consistent view for queries.
     Alternative Flows (optional):
         - Boundary not available (no checkpoint); service may request “latest committed” with caveats recorded.
+        - Debugging/CI tool queries snapshot to compare outputs across runs or validate expected artifacts and QA outcomes.
 
 Use Case UC14: Resolve Named Outputs Instead of Stage-Index Walking
 
