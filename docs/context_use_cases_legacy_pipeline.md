@@ -572,5 +572,5 @@ The following capabilities appear to be **hard requirements** for any replacemen
 
 ## 10. Contributors
 
-- **Kristin Berry** — Worked on draft [`context_use_cases_draft2.md`](context_use_cases_draft2.md)
-- **Shawn Booth** — Worked on draft [`context_use_cases_draft1.md`](context_use_cases_draft1.md)
+- **Kristin Berry** — Worked on this draft
+- **Shawn Booth** — Worked on this draft

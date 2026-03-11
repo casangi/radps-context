@@ -14,7 +14,7 @@ This version is tuned for **Pipeline Context** design. In a distributed system, 
 See also:
 
 - [docs/radps_use_case_mapping.md](radps_use_case_mapping.md) (Pipeline UC → RADPS context mapping)
-- [docs/current_pipeline_use_cases.md](current_pipeline_use_cases.md) (source Pipeline UCs)
+- [docs/context_use_cases_legacy_pipeline.md](context_use_cases_legacy_pipeline.md) (source Pipeline UCs)
 - [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
 
 Use Case <number>: <title>
@@ -66,7 +66,7 @@ Use Case UC1: Initialize or Load a Run Context
     Actors:
         Operator (human or automation), Planner service, Context Store.
     Goals:
-        Create a new run record with stable identifiers, initial metadata, and run-level location configuration, or load an existing run for resume. The context must be driver-agnostic: any orchestration front-end (automated batch, interactive session, recipe evaluator) must produce an equivalent run record, and the context contract must remain stable across drivers (Pipeline UC1). Run identity and artifact location layout must be first-class context data (Pipeline UC2).
+        Create a new run record with stable identifiers, initial metadata, and run-level location configuration, or load an existing run for resume. The context must be driver-agnostic: any orchestration front-end (automated batch, interactive session, recipe evaluator) must produce an equivalent run record, and the context contract must remain stable across drivers (Pipeline UC-08). Run identity and artifact location layout must be first-class context data (Pipeline UC-03).
     Preconditions:
         Inputs are identified (dataset IDs/paths); caller is authorized to create or access the run.
     Postconditions / Outputs:
@@ -125,7 +125,7 @@ Use Case UC3: Record a Node Attempt Lifecycle and Maintain Execution History (St
     Actors:
         Executor/worker, Context Store.
     Goals:
-        Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for reporting, progress tracking, export, and regression validation (Pipeline UC3, UC7). Node ordering within the DAG replaces legacy stage numbering and must remain coherent across resumes.
+        Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for reporting, progress tracking, export, and regression validation (Pipeline UC-06, UC-14). Node ordering within the DAG replaces legacy stage numbering and must remain coherent across resumes.
     Preconditions:
         `run_id` and `plan_id` exist; `node_id` exists in the plan; worker is authorized to update run state.
     Postconditions / Outputs:
@@ -413,7 +413,7 @@ Use Case UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
     Actors:
         QA/reporting service, debugging/inspection tools, CI harness, Context Store.
     Goals:
-        Provide a consistent read view of run state and artifact registry for rendering/scoring without depending on worker memory. Must also support inspection and debugging use cases: diagnosing failures (what ran, what data was loaded, what state was produced), validating deterministic outputs, and surfacing failures beyond raw task exceptions (Pipeline UC6, UC7).
+        Provide a consistent read view of run state and artifact registry for rendering/scoring without depending on worker memory. Must also support inspection and debugging use cases: diagnosing failures (what ran, what data was loaded, what state was produced), validating deterministic outputs, and surfacing failures beyond raw task exceptions (Pipeline UC-12, UC-14).
     Preconditions:
         A checkpoint exists or a consistent snapshot boundary is defined (e.g., “as of attempt X completion”).
     Postconditions / Outputs:
