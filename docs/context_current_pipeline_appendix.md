@@ -32,25 +32,25 @@ This document contains architectural observations, design recommendations, and r
 |---|---|---|
 | 1 | Static Observation & Project Data | UC-01, UC-02 |
 | 2 | Mutable Observation State | UC-01 |
-| 3 | Path Management | UC-03, UC-16 |
+| 3 | Path Management | UC-03, UC-17 |
 | 4 | Imaging State Management | UC-05 |
 | 5 | Calibration State Management | UC-04 |
-| 6 | Image Library Management | UC-05 |
-| 7 | Session Persistence | UC-09 |
-| 8 | MPI / Parallel Distribution | UC-10, UC-11 |
-| 9 | Inter-Task Data Passing | UC-06, UC-07, UC-11 |
-| 10 | Stage Tracking & Result Accumulation | UC-06, UC-07, UC-08 |
-| 11 | Reporting & Export Support | UC-12, UC-16 |
-| 12 | QA Score Storage | UC-13 |
-| 13 | Debuggability / Inspectability | UC-14 |
-| 14 | Telescope-Specific State | UC-15 |
-| 15 | Lifecycle Notifications | UC-17 |
+| 6 | Image Library Management | UC-06 |
+| 7 | Session Persistence | UC-10 |
+| 8 | MPI / Parallel Distribution | UC-11, UC-12 |
+| 9 | Inter-Task Data Passing | UC-07, UC-08, UC-09, UC-12 |
+| 10 | Stage Tracking & Result Accumulation | UC-07, UC-08, UC-09 |
+| 11 | Reporting & Export Support | UC-13, UC-17 |
+| 12 | QA Score Storage | UC-13, UC-14 |
+| 13 | Debuggability / Inspectability | UC-15 |
+| 14 | Telescope-Specific State | UC-16 |
+| 15 | Lifecycle Notifications | UC-18 |
 
 ---
 
 ## Implementation Notes by Use Case
 
-The following implementation notes describe how each use case is realized in the current pipeline codebase. They were separated from the use-case definitions to keep the requirements document implementation-neutral.
+The following implementation notes describe how each use case is realized in the current pipeline codebase. They were separated from the use-case definitions to keep the requirements document focused on requirements.
 
 ### UC-01 — Load and Provide Access to Observation Metadata
 
@@ -117,18 +117,22 @@ This is a strong candidate for a separate, immutable-after-init sub-record in an
 | `size_mitigation_parameters` | `checkproductsize` | downstream stages |
 | `selfcal_targets`, `selfcal_resources` | `selfcal` | `exportdata` |
 
-Image libraries provide typed registries:
+A future design should formalize imaging state as a typed state machine or versioned configuration sub-document, and consider separating image *metadata* (tracked in context) from image *data* (stored in artifact store).
+
+---
+
+### UC-06 — Register and Query Produced Image Products
+
+**Implementation notes** — image libraries provide typed registries:
 
 - `context.sciimlist.add_item(imageitem)` / `.get_imlist()` — science images
 - `context.calimlist` — calibrator images
 - `context.rmsimlist` — RMS images
 - `context.subimlist` — sub-product images (cutouts, cubes)
 
-A future design should formalize imaging state as a typed state machine or versioned configuration sub-document, and consider separating image *metadata* (tracked in context) from image *data* (stored in artifact store).
-
 ---
 
-### UC-06 — Track Execution Progress and Stage History
+### UC-07 — Track Execution Progress and Stage History
 
 **Implementation notes:**
 
@@ -139,12 +143,12 @@ A future design should formalize imaging state as a typed state machine or versi
 
 ---
 
-### UC-07 — Propagate Task Outputs to Downstream Tasks
+### UC-08 — Propagate Task Outputs to Downstream Tasks
 
-**Implementation notes** — there are two propagation mechanisms:
+**Implementation notes** — the current pipeline satisfies these needs through two different propagation paths:
 
-1. **Structured state merge** — `Results.merge_with_context(context)` updates calibration library, image libraries, and other typed state.
-2. **Results-list walking** — tasks read `context.results` to find outputs from earlier stages. For example:
+1. **Immediate state propagation** — `Results.merge_with_context(context)` updates calibration library, image libraries, and other typed state so later tasks can access the current processing state directly.
+2. **Retained step-result access** — tasks read `context.results` to find outputs from earlier stages when those outputs are needed from the recorded execution history rather than from merged shared state. For example:
    - VLA tasks compute `stage_number` from `context.results[-1].read().stage_number + 1`
    - `vlassmasking` iterates `context.results[::-1]` to find the latest `MakeImagesResult`
    - Export/AQUA code reads `context.results[0]` and `context.results[-1]` for timestamps
@@ -153,7 +157,7 @@ The results-list walking pattern is fragile (indices shift if stages are inserte
 
 ---
 
-### UC-08 — Support Multiple Orchestration Drivers
+### UC-09 — Support Multiple Orchestration Drivers
 
 **Implementation notes** — two orchestration planes converge on the same task implementations:
 
@@ -164,7 +168,7 @@ They differ in how inputs are marshalled, how session paths are selected, and ho
 
 ---
 
-### UC-09 — Save and Restore a Processing Session
+### UC-10 — Save and Restore a Processing Session
 
 **Implementation notes:**
 
@@ -175,7 +179,7 @@ They differ in how inputs are marshalled, how session paths are selected, and ho
 
 ---
 
-### UC-10 — Provide State to Parallel Workers
+### UC-11 — Provide State to Parallel Workers
 
 **Implementation notes** — `pipeline/infrastructure/mpihelpers.py`, class `Tier0PipelineTask`:
 
@@ -186,7 +190,7 @@ They differ in how inputs are marshalled, how session paths are selected, and ho
 
 ---
 
-### UC-12 — Provide Data for Report Generation
+### UC-13 — Provide Read-Only Context for Reporting Consumers
 
 **Implementation notes** — `WebLogGenerator.render(context)` in `pipeline/infrastructure/renderer/htmlrenderer.py`:
 
@@ -201,20 +205,20 @@ The renderer iterates `context.results` multiple times (assigning to topics, ext
 
 ---
 
-### UC-13 — Compute and Store Quality Assessments
+### UC-14 — Support QA Evaluation and Store Quality Assessments
 
 **Implementation notes** — after `merge_with_context()`, `accept()` triggers `pipelineqa.qa_registry.do_qa(context, result)`:
 
 - QA handlers implement `QAPlugin.handle(context, result)`
 - They typically call `context.observing_run.get_ms(vis)` to look up metadata for scoring (antenna count, channel count, SPW properties, field intents)
 - Some handlers check `context.imaging_mode` to branch on VLASS-specific scoring
-- Scores are appended to `result.qa.pool` — they don't mutate the context directly
+- Scores are appended to `result.qa.pool` — the context provides inputs to QA evaluation, but the scores are stored on the result rather than as direct context mutations
 
 QA handlers are *read-only* with respect to context and could operate on a frozen snapshot, making them a good candidate for parallelization.
 
 ---
 
-### UC-15 — Isolate Telescope-Specific State
+### UC-16 — Manage Telescope-Specific Context Extensions
 
 **Implementation notes** — `context.evla` is a `collections.defaultdict(dict)`, keyed as `context.evla['msinfo'][ms_name].<property>`:
 
@@ -222,11 +226,11 @@ QA handlers are *read-only* with respect to context and could operate on a froze
 - **Read by:** nearly every VLA calibration task and heuristic
 - Accessed fields include: `gain_solint1`, `gain_solint2`, `setjy_results`, `ignorerefant`, various `*_field_select_string` / `*_scan_select_string` values, `fluxscale_sources`, `spindex_results`, and many more
 
-This is a completely untyped, dictionary-of-dictionaries sidecar. A future design should define a typed state object, provide accessor methods rather than raw dict lookups, and separate telescope-specific concerns from the generic context via composition (e.g., `context.get_extension('evla')`).
+This is a completely untyped, dictionary-of-dictionaries sidecar attached to the top-level context. A future design should define a typed state object, provide accessor methods rather than raw dict lookups, and separate telescope-specific concerns from the generic context via composition (e.g., `context.get_extension('evla')`).
 
 ---
 
-### UC-17 — Emit Lifecycle Notifications
+### UC-18 — Emit Lifecycle Notifications
 
 **Implementation notes** — `pipeline.infrastructure.eventbus.send_message(event)`:
 
