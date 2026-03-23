@@ -1,11 +1,11 @@
 # RADPS context: mapping current Pipeline context use cases to next-gen requirements
 
-This note maps the **current Pipeline context** use cases documented in [docs/context_use_cases_legacy_pipeline.md](context_use_cases_legacy_pipeline.md) to the **RADPS** (WSU + ngVLA) execution model and derives a concrete “context contract” suitable for distributed, ACID, restartable processing.
+This note maps the **current Pipeline context** use cases documented in [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) to the **RADPS** (WSU + ngVLA) execution model and derives a concrete “context contract” suitable for distributed, ACID, restartable processing.
 
 See also:
 
 - [docs/context_design_use_cases.md](context_design_use_cases.md) (draft RADPS context use cases)
-- [docs/context_use_cases_legacy_pipeline.md](context_use_cases_legacy_pipeline.md) (source Pipeline use cases)
+- [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) (source Pipeline use cases)
 - [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
 
 ## Assumptions (from RADPS discussions)
@@ -38,9 +38,9 @@ Out of scope here (though context must *record* their outcomes):
 
 Within that scope, the planner and executor are **actors** that read/write context, and the context store is the system-of-record.
 
-## Use-case relevance mapping (Pipeline UC-01 through UC-17)
+## Use-case relevance mapping (Pipeline UC-01 through UC-18)
 
-The Pipeline use cases are organized by the 15 context responsibilities identified in [context_use_cases_legacy_pipeline.md](context_use_cases_legacy_pipeline.md). Each UC maps one or more responsibilities to a concrete need that the pipeline’s central state management must satisfy.
+The Pipeline use cases are organized by the 15 context responsibilities identified in [context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md). Each UC maps one or more responsibilities to a concrete need that the pipeline’s central state management must satisfy.
 
 Legend:
 - **MUST**: RADPS must directly support this capability
@@ -54,18 +54,19 @@ Legend:
 | UC-03 | Manage execution paths and output locations | **MUST** | Replace embedded filesystem paths with an **artifact registry** backed by stable IDs and location references. Run identity becomes a first-class `run_id` in the context store. Relocation becomes “artifact locations are references”, not embedded paths. |
 | UC-04 | Register and query calibration state | **MUST** | Represent calibration application state as a **typed, versioned sub-record** with **transactional multi-entry updates** (single task may register multiple items atomically). Replaces `context.callibrary`. |
 | UC-05 | Accumulate imaging state across multiple steps | **MUST** | Replace ad-hoc imaging attributes with a **schema’d imaging state document** (versioned) or a state machine. Must support concurrent-safe, partition-scoped updates. Fold image libraries into the **artifact registry** as first-class entries with image-specific metadata; keep separate “views” if needed (science/cal/RMS/sub-products). |
-| UC-06 | Track execution progress and stage history | **MUST** | Replace the in-memory `context.results` timeline with a **run ledger**: per-node attempt records with status, timing, QA outcomes, and tracebacks. Stage numbering becomes node execution ordering within the DAG. |
-| UC-07 | Propagate task outputs to downstream tasks | **MUST** | Replace `Results.merge_with_context()` with **transactional updates** to a shared ACID store. Replace results-list walking with **named outputs / typed references** (artifact IDs, logical outputs) queryable by key, not by stage index. |
-| UC-08 | Support multiple orchestration drivers | **MUST** | Replace PPR/XML/interactive driver-specific entry points with a **planner-produced DAG/plan**. The context must remain the stable state contract regardless of how the run was initiated. Preserve breakpoint/resume semantics. |
-| UC-09 | Save and restore a processing session | **MUST** | Replace pickle-based persistence with **DB-backed run ledger + artifact registry**. Checkpoints become explicit context objects rather than whole-object snapshots. Support restart on a different node/cluster. |
-| UC-10 | Provide state to parallel workers | **MUST** | Formalize **context snapshot semantics**: workers read a consistent, read-only snapshot of required context state at a defined boundary. Snapshot must be efficiently distributable (no forked pickles as system-of-record). |
-| UC-11 | Aggregate results from parallel workers | **MUST** | Formalize **transactional write-back**: worker results are committed via ACID transactions with conflict detection. Aggregation must be safe (no conflicting concurrent writes) and complete before the next sequential step begins. |
-| UC-12 | Provide data for report generation | **MUST** | Provide **consistent read-only snapshot views** of context for weblog, QA reports, AQUA XML, and product packaging. Reports are generated from **ledger + registry + annotations** using a stable API; must support re-rendering post-run without access to worker memory. |
-| UC-13 | Compute and store quality assessments | **MUST** | Guarantee **read-only snapshot views** of context for QA handlers (consistent with a plan/attempt checkpoint). QA scores become artifacts or typed records in context. QA handlers are parallelization-safe since they are read-only with respect to context. |
-| UC-14 | Support interactive inspection and debugging | **MUST** | Preserve deterministic run layouts and machine-checkable failure signals. Extend to distributed runs: per-node logs, structured events, and stable run IDs. Context must be inspectable via a stable API, not by unpickling. |
-| UC-15 | Isolate telescope-specific state | **WON’T (as-is)** | VLA is not a RADPS target. If ngVLA needs domain-specific state, use a **typed extension mechanism** (schema’d, versioned, per-dataset scoped) via RADPS UC16. VLA-specific fields are not requirements. |
-| UC-16 | Package and export pipeline products | **MUST** | Export reads from the artifact registry and run ledger to assemble deliverable packages. Artifact references (not embedded paths) make this possible across filesystems. The export result itself is registered as an artifact. |
-| UC-17 | Emit lifecycle notifications | **SHOULD** | Prefer an **event log** (append-only) or patch log as part of context (audit + replay). Even if state tables exist, keep an event stream for provenance and debugging. Could be elevated to primary state mutation channel. |
+| UC-06 | Register and query produced image products | **MUST** | Represent produced image products as typed artifact registry entries (science, calibrator, RMS, sub-products). Provide add/query semantics and lineage links so downstream tasks, reporting, and export can discover images by type and provenance. |
+| UC-07 | Track execution progress and stage history | **MUST** | Replace the in-memory `context.results` timeline with a **run ledger**: per-node attempt records with status, timing, QA outcomes, and tracebacks. Stage numbering becomes node execution ordering within the DAG. |
+| UC-08 | Propagate task outputs to downstream tasks | **MUST** | Replace `Results.merge_with_context()` with **transactional updates** to a shared ACID store. Replace results-list walking with **named outputs / typed references** (artifact IDs, logical outputs) queryable by key, not by stage index. |
+| UC-09 | Support multiple orchestration drivers | **MUST** | Replace PPR/XML/interactive driver-specific entry points with a **planner-produced DAG/plan**. The context must remain the stable state contract regardless of how the run was initiated. Preserve breakpoint/resume semantics. |
+| UC-10 | Save and restore a processing session | **MUST** | Replace pickle-based persistence with **DB-backed run ledger + artifact registry**. Checkpoints become explicit context objects rather than whole-object snapshots. Support restart on a different node/cluster. |
+| UC-11 | Provide state to parallel workers | **MUST** | Formalize **context snapshot semantics**: workers read a consistent, read-only snapshot of required context state at a defined boundary. Snapshot must be efficiently distributable (no forked pickles as system-of-record). |
+| UC-12 | Aggregate results from parallel workers | **MUST** | Formalize **transactional write-back**: worker results are committed via ACID transactions with conflict detection. Aggregation must be safe (no conflicting concurrent writes) and complete before the next sequential step begins. |
+| UC-13 | Provide data for report generation | **MUST** | Provide **consistent read-only snapshot views** of context for weblog, QA reports, AQUA XML, and product packaging. Reports are generated from **ledger + registry + annotations** using a stable API; must support re-rendering post-run without access to worker memory. |
+| UC-14 | Compute and store quality assessments | **MUST** | Guarantee **read-only snapshot views** of context for QA handlers (consistent with a plan/attempt checkpoint). QA scores become artifacts or typed records in context. QA handlers are parallelization-safe since they are read-only with respect to context. |
+| UC-15 | Support interactive inspection and debugging | **MUST** | Preserve deterministic run layouts and machine-checkable failure signals. Extend to distributed runs: per-node logs, structured events, and stable run IDs. Context must be inspectable via a stable API, not by unpickling. |
+| UC-16 | Manage telescope-specific state | **WON’T (as-is)** | VLA is not a RADPS target. If ngVLA needs domain-specific state, use a **typed extension mechanism** (schema’d, versioned, per-dataset scoped) via RADPS UC16. VLA-specific fields are not requirements. |
+| UC-17 | Package and export pipeline products | **MUST** | Export reads from the artifact registry and run ledger to assemble deliverable packages. Artifact references (not embedded paths) make this possible across filesystems. The export result itself is registered as an artifact. |
+| UC-18 | Emit lifecycle notifications | **SHOULD** | Prefer an **event log** (append-only) or patch log as part of context (audit + replay). Even if state tables exist, keep an event stream for provenance and debugging. Could be elevated to primary state mutation channel. |
 
 ## Pipeline responsibilities to RADPS context subsystem mapping
 
@@ -180,18 +181,17 @@ Concrete RADPS context use cases are drafted in [docs/context_design_use_cases.m
 - “internal pipeline interactions” equivalents: catalog queries, calibration/imaging state, snapshots, named outputs (RADPS UC10–UC14)
 - event/patch logging, domain extensions, and worker snapshot/write-back semantics (RADPS UC15+)
 
-## “Missing today” capabilities (FUCs) and RADPS context implications
+## “Missing today” capabilities (GAPs) and RADPS context implications
 
-The Pipeline note also enumerates future/missing capabilities (FUC-01 through FUC-08: concurrency, cloud without shared FS, multi-language access, streaming/incremental, reproducibility guarantees, access control, targeted reruns, external integrations). Not all of these are “context” features, but **every one requires context changes**.
+The Pipeline note also enumerates capabilities the current design cannot handle (GAP-01 through GAP-07: concurrency, cloud without shared FS, multi-language access, streaming/incremental, reproducibility guarantees, targeted reruns, external integrations). Not all of these are “context” features, but **every one requires context changes**.
 
-- **FUC-01 Concurrent / overlapping execution**: requires snapshot isolation + transactional merges; context must support partition-scoped writes and conflict detection.
-- **FUC-02 Distributed execution without shared filesystem**: requires artifact references decoupled from POSIX paths; context becomes the system-of-record.
-- **FUC-03 Multi-language access**: requires a language-neutral schema + API for context state and artifact queries.
-- **FUC-04 Streaming / incremental processing**: requires versioned dataset registration and versioned results/artifacts.
-- **FUC-05 Provenance and reproducibility guarantees**: requires immutable per-attempt records and input hashing/lineage.
-- **FUC-06 Fine-grained access control**: requires authn/authz metadata and audit logs on all context mutations.
-- **FUC-07 Partial re-execution / targeted rerun**: requires explicit dependency tracking and invalidation semantics (context-level).
-- **FUC-08 External system integration**: requires stable identifiers, event subscriptions, and exportable summaries/manifests from context.
+- **GAP-01 Concurrent / overlapping execution**: requires snapshot isolation + transactional merges; context must support partition-scoped writes and conflict detection.
+- **GAP-02 Distributed execution without shared filesystem**: requires artifact references decoupled from POSIX paths; context becomes the system-of-record.
+- **GAP-03 Multi-language access**: requires a language-neutral schema + API for context state and artifact queries.
+- **GAP-04 Streaming / incremental processing**: requires versioned dataset registration and versioned results/artifacts.
+- **GAP-05 Provenance and reproducibility guarantees**: requires immutable per-attempt records and input hashing/lineage.
+- **GAP-06 Partial re-execution / targeted rerun**: requires explicit dependency tracking and invalidation semantics (context-level).
+- **GAP-07 External system integration**: requires stable identifiers, event subscriptions, and exportable summaries/manifests from context.
 
 ## Compatibility and determinism policy (pragmatic)
 

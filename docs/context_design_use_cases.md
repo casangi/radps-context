@@ -14,7 +14,7 @@ This version is tuned for **Pipeline Context** design. In a distributed system, 
 See also:
 
 - [docs/radps_use_case_mapping.md](radps_use_case_mapping.md) (Pipeline UC → RADPS context mapping)
-- [docs/context_use_cases_legacy_pipeline.md](context_use_cases_legacy_pipeline.md) (source Pipeline UCs)
+- [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) (source Pipeline UCs)
 - [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
 
 Use Case <number>: <title>
