@@ -1,20 +1,29 @@
 # Pipeline Context Use Cases
 
 ## Overview
+The pipeline `Context` is the central state object used for an entire pipeline execution. 
+It carries observation data, calibration state, imaging state, execution history, 
+and project metadata, and serves as the primary communication channel between pipeline stages.
 
-The pipeline `Context` class is the central mutable state object used for an entire pipeline execution. It is simultaneously a session state container, a domain metadata container, a cross-stage communication channel, and a persistence unit.
+This document catalogues the current use cases of the pipeline Context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline Context for RADPS. It also identifies an initial set of use cases that the current design does not support but that are required or implied by RADPS requirements documentation.
 
-This document catalogues the current use cases of the pipeline Context as determined by examination of the codebase. The goal is to support design and development of a prototype of a system which serves a similar role to that of the context for RADPS. It also identifies an initial set of use cases that the current design does not support but that are required or implied by RADPS requirements documentation. The goal is to inform the design of a system serving a similar role to the Context in RADPS.
-
-See also: [Supplementary analysis and design recommendations](context_current_pipeline_appendix.md)
+For additional details about the current implementation, reference material, and exploratory future use cases, see [Supplementary Analysis](context_current_pipeline_appendix.md).
 
 ---
 
 ## 1. Use Cases
 
-Each use case describes a need that the pipeline's central state management must satisfy. They are written to be implementation-neutral in their core description. For pipeline-specific implementation details per use case, see [Implementation Notes by Use Case](context_current_pipeline_appendix.md#implementation-notes-by-use-case) in the appendix.
+Each use case describes a need that the pipeline `Context` must satisfy. They are written to be implementation-neutral — the goal is to capture what the system must do, not 
+how the current pipeline implementation achieves it. For pipeline-specific implementation details by use case, see [Implementation Notes by Use Case](context_current_pipeline_appendix.md#implementation-notes-by-use-case) in the appendix.
 
-In the tables below, **Actor(s)** identifies the human or system role that directly creates, updates, consumes, or inspects the context state described by the use case. Actors are role categories, not specific task names or implementations.
+The following fields are used in each use case:
+
+- **Actor(s):** The human or system role that directly creates, updates, consumes, or inspects the 
+context state described by the use case. Actors are role categories, not specific task names or 
+current implementations.
+- **Summary:** What the system must do to satisfy the use case.
+- **Invariant:** A condition that must always be true while the system is operating. Present only where a meaningful invariant exists.
+- **Postcondition:** A condition that must be true after a specific operation completes. Present only where a meaningful postcondition exists.
 
 ---
 
