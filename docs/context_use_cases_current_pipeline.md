@@ -33,7 +33,7 @@ current implementations.
 |-------|---------|
 | **Actor(s)** | Data import task, any downstream task, heuristics, renderers, QA handlers |
 | **Summary** | The system must load observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges) and make it queryable by all subsequent processing steps. It must also provide a unified identifier scheme when multiple datasets use different native numbering. |
-| **Postconditions** | All registered datasets remain queryable for the lifetime of the session without repeating the import process. |
+| **Invariant** | All registered datasets remain queryable for the lifetime of the session without repeating the import process. |
 
 ---
 
@@ -43,7 +43,7 @@ current implementations.
 |-------|---------|
 | **Actor(s)** | Initialization, any task, report generators |
 | **Summary** | The system must store project-level metadata (proposal code, PI, telescope, desired sensitivities, processing recipe) and make it available to tasks for decision-making and to report generators for labelling outputs. |
-| **Postconditions** | Project metadata is available for the lifetime of the processing session. |
+| **Invariant** | Project metadata is available for the lifetime of the processing session. |
 
 ---
 
@@ -53,7 +53,7 @@ current implementations.
 |-------|---------|
 | **Actor(s)** | Initialization, any task, report generators, export code |
 | **Summary** | The system must centrally define and provide working directories, report directories, product directories, and logical filenames for logs, scripts, and reports. Tasks resolve file paths through these centrally managed locations. On session restore, paths must be overridable to adapt to a new environment. |
-| **Postconditions** | All tasks share a consistent set of paths for inputs and outputs. |
+| **Invariant** | All tasks share a consistent set of paths for inputs and outputs. |
 
 ---
 
@@ -63,7 +63,7 @@ current implementations.
 |-------|---------|
 | **Actor(s)** | Calibration tasks |
 | **Summary** | The system must allow calibration tasks to register solutions (indexed by data selection: field, spectral window, antenna, intent, time interval), and allow downstream tasks to query for all calibrations applicable to a given data selection. It must distinguish between calibrations pending application and those already applied. Registration must support transactional multi-entry updates — tasks often register multiple calibrations atomically within a single result acceptance. |
-| **Postconditions** | Calibration state is queryable and correctly scoped to data selections. |
+| **Invariant** | Calibration state is queryable and correctly scoped to data selections. |
 
 ---
 
@@ -73,7 +73,7 @@ current implementations.
 |-------|---------|
 | **Actor(s)** | Imaging tasks, downstream heuristics, and export tasks |
 | **Summary** | The system must allow imaging state — target lists, imaging parameters, masks, thresholds, and sensitivity estimates — to be computed by one step and read or refined by later steps. Multiple steps may contribute to a progressively refined imaging configuration. |
-| **Postconditions** | The accumulated imaging state reflects contributions from all completed imaging-related steps and is available to later imaging steps. |
+| **Invariant** | The accumulated imaging state reflects contributions from all completed imaging-related steps and is available to later imaging steps. |
 
 ---
 
@@ -83,7 +83,7 @@ current implementations.
 |-------|---------|
 | **Actor(s)** | Imaging tasks, export tasks, report generators |
 | **Summary** | The system must maintain typed registries of produced image products with add/query semantics. Later tasks must be able to discover previously produced science, calibrator, RMS, and sub-product images through these registries. |
-| **Postconditions** | Produced image products are registered by type and remain queryable for downstream processing, reporting, and export. |
+| **Invariant** | Produced image products are registered by type and remain queryable for downstream processing, reporting, and export. |
 
 ---
 
@@ -93,7 +93,7 @@ current implementations.
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, tasks, report generators, human operators |
 | **Summary** | The system must track which processing step is currently executing and maintain a stable, ordered history of completed steps and their outcomes. This history must support reporting, script generation, and resumption after interruption. Per-stage tracebacks and timings must be preserved, and stage identity and ordering must remain coherent across resumes. |
-| **Postconditions** | The full execution history is retrievable in order; each recorded step retains its stage identity, outcome, timing, traceback information, and the arguments or effective parameters used to invoke it. |
+| **Invariant** | The full execution history is retrievable in order; each recorded step retains its stage identity, outcome, timing, traceback information, and the arguments or effective parameters used to invoke it. |
 
 ---
 
@@ -112,8 +112,8 @@ current implementations.
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Operations / automated processing (PPR-driven batch), pipeline developer / power user (interactive), recipe executor |
-| **Summary** | The context is created and consumed by multiple front-ends: PPR command lists, XML procedures, or interactive task calls. The system must remain the stable state contract across these drivers. It must be creatable and resumable from non-interactive and interactive drivers, support driver-injected run metadata, tolerate partial execution controls (`startstage`, `exitstage`) and breakpoint-driven stop/resume semantics, and provide machine-detectable success/failure signals. |
-| **Postconditions** | The same context state is usable regardless of which orchestration driver created or resumed it. |
+| **Summary** | The context is created and consumed by multiple front-ends: PPR command lists, XML procedures, or interactive task calls. Processing state must remain consistent and usable regardless of which driver created or resumed it. It must be creatable and resumable from non-interactive and interactive drivers, support driver-injected run metadata, tolerate partial execution controls (`startstage`, `exitstage`) and breakpoint-driven stop/resume semantics, and provide machine-detectable success/failure signals. |
+| **Invariant** | Processing state is consistent and usable regardless of which orchestration driver created or resumed it. |
 
 ---
 
@@ -122,8 +122,8 @@ current implementations.
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, workflow orchestration layer, developers |
-| **Summary** | The system must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata) and later restore it so that processing can resume from the saved point. The serialization must preserve enough state to resume when serialization compatibility is maintained; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
-| **Postconditions** | After restore, the processing state is operationally equivalent to the saved state for supported resume workflows, and processing can continue. |
+| **Summary** | The system must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata, etc) and later restore it so that processing can resume from the saved point. The serialization must preserve enough state to resume; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
+| **Postconditions** | After restore, the processing state is operationally equivalent to the saved state for supported resume workflows, and processing can continue from the specified point. |
 
 ---
 
@@ -132,8 +132,9 @@ current implementations.
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, parallel worker processes |
-| **Summary** | When work is distributed across parallel workers, each worker needs read-only access to the current processing state (observation metadata, calibration state, etc.). The system must provide a mechanism for workers to obtain a consistent snapshot of that state. Workers must not be able to modify the shared processing state directly. The snapshot mechanism must support efficient distribution to workers. |
-| **Postconditions** | Each worker has a consistent, read-only view of the processing state for the duration of its work. |
+| **Summary** | When work is distributed across parallel workers, each worker needs read-only access to the current processing state (observation metadata, calibration state). The system must provide a mechanism for workers to obtain a consistent snapshot of that state. Workers must not be able to modify the shared processing state directly. The snapshot mechanism must support efficient distribution to workers. |
+| **Invariant:**| Worker processes cannot modify shared processing state directly. |
+| **Postconditions** | After distribution, each worker has a consistent, read-only view of the processing state for the duration of its work. |
 
 ---
 
@@ -147,7 +148,7 @@ current implementations.
 
 ---
 
-### UC-13 — Provide Read-Only Context for Reporting Consumers
+### UC-13 — Provide Read-Only State for Reporting
 
 | Field | Content |
 |-------|---------|
@@ -161,8 +162,8 @@ current implementations.
 
 | Field | Content |
 |-------|---------|
-| **Actor(s)** | QA scoring framework, report generators, later pipeline logic that consults recorded QA outcomes |
-| **Summary** | After each processing step completes, the system must make the relevant processing state available to QA handlers so they can evaluate the outcome against quality thresholds, which may depend on telescope, project parameters, or observation properties. The resulting normalized quality scores must be recorded and remain retrievable for reporting and for later pipeline logic that explicitly consults recorded QA outcomes. |
+| **Actor(s)** | QA scoring framework, report generators, tasks that consult recorded QA outcomes |
+| **Summary** | After each processing step completes, the system must make the relevant processing state available to QA handlers so they can evaluate the outcome against quality thresholds, which may depend on telescope, project parameters, or observation properties. The resulting quality scores must be recorded and remain retrievable for reporting and for later pipeline logic that consults recorded QA outcomes. |
 | **Postconditions** | Quality scores are associated with the relevant processing step and accessible to reports and downstream logic. |
 
 ---
@@ -172,8 +173,8 @@ current implementations.
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Pipeline developer, pipeline operator, CI harnesses |
-| **Summary** | The system must allow an operator to inspect the current processing state: which datasets are registered, what calibrations exist, how many steps have completed, and what their outcomes were. On failure, a snapshot of the state should be available for post-mortem analysis. The system must provide deterministic paths and outputs that a test harness can validate, and must surface failures beyond raw task exceptions. |
-| **Postconditions** | The operator can understand the current state of processing and diagnose problems. |
+| **Summary** | The system must allow an operator to inspect the current processing state, for example: which datasets are registered, what calibrations exist, how many steps have completed, and what their outcomes were. On failure, a snapshot of the state must be available for post-mortem analysis. The system must provide deterministic paths and outputs that a test harness can validate, and must surface failures that happen outside of task execution, e.g. weblog rendering. |
+| **Invariant** | The current processing state is inspectable at any point during execution, and sufficient information is retained to diagnose failures after the fact. |
 
 ---
 
@@ -182,18 +183,18 @@ current implementations.
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Telescope-specific tasks and heuristics |
-| **Summary** | The system must support conditional telescope-specific extensions to the processing state. These extensions must be available to telescope-specific tasks and heuristics while remaining outside the assumed contract of shared pipeline code. Their presence must depend on the instrument being processed rather than being treated as universally available context state. |
-| **Postconditions** | Telescope-specific extensions are present only for runs that require them, available to the tasks that need them, and not assumed by shared pipeline code. |
+| **Summary** | The system must support conditional telescope-specific extensions to the processing state. These extensions must be available to telescope-specific tasks and heuristics while remaining outside the assumed contract of shared pipeline code. Generic pipeline components must not depend on or require knowledge of telescope-specific extensions. |
+| **Invariant** | Telescope-specific extensions are present only for runs that require them, available to the tasks that need them, and are never assumed by shared pipeline code. |
 
 ---
 
-### UC-17 — Provide Context for Product Export
+### UC-17 — Provide State for Product Export
 
 | Field | Content |
 |-------|---------|
-| **Actor(s)** | Export task, archive system |
-| **Summary** | The system must make the datasets, calibration state, image products, reports, scripts, path information, and project identifiers available through the processing state so export tasks can assemble them into a deliverable product package. The package must be structured for downstream archive ingestion. |
-| **Postconditions** | The information needed to assemble the product package is accessible through the processing state, and a self-contained product package can be produced. |
+| **Actor(s)** | Export task |
+| **Summary** | The system must make the datasets, calibration state, image products, reports, scripts, path information, and project identifiers available through the processing state so export tasks can assemble them into a deliverable product package. |
+| **Invariant** | The information needed to assemble a deliverable product package is accessible through the processing state. |
 
 ---
 
@@ -203,7 +204,7 @@ current implementations.
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, event subscribers (loggers, progress monitors) |
 | **Summary** | The system must emit notifications at key lifecycle points (session start, session restore, step start, step completion, result acceptance) so that external observers (logging, progress reporting, live dashboards) can track execution without polling. |
-| **Postconditions** | Subscribers are notified of lifecycle transitions as they occur. |
+| **Invariant** | Subscribers are notified of lifecycle transitions as they occur. |
 
 ---
 
