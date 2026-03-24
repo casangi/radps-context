@@ -2,9 +2,9 @@
 
 ## Overview
 
-The pipeline `Context` class (`pipeline.infrastructure.launcher.Context`) is the central mutable state object used for an entire pipeline execution. It is simultaneously a session state container, a domain metadata container, a cross-stage communication channel, and a persistence unit.
+The pipeline `Context` class is the central mutable state object used for an entire pipeline execution. It is simultaneously a session state container, a domain metadata container, a cross-stage communication channel, and a persistence unit.
 
-This document catalogues the current use cases of the pipeline Context as determined by examination of the codebase. The goal is to support design and development of a prototype of a system which serves a similar role to that of the context for RADPS. It also includes additional use cases and gap scenarios identified by examining the RADPS documentation and requirements, to ensure future extensibility and alignment with next-generation needs.
+This document catalogues the current use cases of the pipeline Context as determined by examination of the codebase. The goal is to support design and development of a prototype of a system which serves a similar role to that of the context for RADPS. It also identifies an initial set of use cases that the current design does not support but that are required or implied by RADPS requirements documentation. The goal is to inform the design of a system serving a similar role to the Context in RADPS.
 
 See also: [Supplementary analysis and design recommendations](context_current_pipeline_appendix.md)
 
@@ -200,74 +200,52 @@ In the tables below, **Actor(s)** identifies the human or system role that direc
 
 ## 2. Use Cases the Current Design Cannot Handle
 
-The following describe scenarios that the current context design *does not support* but that could be valuable in a future architecture. They are numbered GAP-01 through GAP-07 to indicate gaps in the current design's capabilities.
+The following use cases are not supported by the current context design but are required or strongly 
+implied by RADPS requirement and design documentation. These use cases were identified through a first pass 
+of the RADPS requirements documentation and are not exhaustive. A full gap analysis mapping current context use cases to RADPS requirements is a separate activity which is underway. These are numbered GAP-01 through GAP-04 to indicate gaps in the current design's capabilities.
 
-> **Design note:** The context design should remain compatible with multi-tenant deployments (no global singletons that leak state between runs, no hardcoded single-user paths), but access control, role-based permissions, and audit logging are concerns of the deployment platform rather than the context itself.
+Reviewer input on missing or incorrectly included items is welcome.
 
-### GAP-01 — Concurrent / Overlapping Task Execution
-
-| Field | Content |
-|-------|---------|
-| **Actor(s)** | Workflow engine, parallel task scheduler |
-| **Summary** | The system should support concurrent execution of otherwise independent tasks (e.g., per-MS or per-SPW calibration stages) with isolated read snapshots, a merge/reconciliation step when concurrent results are accepted, and explicit declaration of which state fields each task reads and writes. This gap is about overlapping task execution against shared state, not the existing worker fan-out/fan-in pattern used for some parallel work. |
-| **Postconditions** | Independent tasks execute in parallel without corrupting shared state; results are merged safely before the next sequential step. |
-
----
-
-### GAP-02 — Cloud / Distributed Execution Without Shared Filesystem
+### GAP-01 — Concurrent Execution of Independent Work
 
 | Field | Content |
 |-------|---------|
-| **Actor(s)** | Workflow engine, cloud orchestrator, distributed workers |
-| **Summary** | The system should support execution across nodes that do not share a filesystem. This requires a context store backed by a database or object store, artifact references rather than filesystem paths for calibration tables and images, and tasks that can operate on remote datasets without requiring local copies. |
-| **Postconditions** | Processing completes successfully across distributed nodes without reliance on a shared filesystem. |
+| **Actor(s)** | Workflow orchestration layer, parallel task scheduler |
+| **Summary** | The system must support concurrent execution of independent work at multiple granularities — both at the stage level, where independent stages execute simultaneously, and within a stage, where work is parallelized across processing axes such as MS or SPW. In both cases the system must ensure results are correctly incorporated into processing state without inconsistency. This is distinct from the existing parallel worker pattern (UC-11, UC-12), which distributes work within a single stage but requires all work to complete before the next stage can begin.|
+| **Invariant** | Independent tasks are executed concurrently without producing inconsistent or incorrect processing state. | 
+| **Postconditions** | Results from concurrently executed work are fully incorporated into processing state before any dependent work begins. |
+| **RADPS Requirements** | CSS9017, CSS9063 |
 
 ---
 
-### GAP-03 — Multi-Language / Multi-Framework Access to Context
+### GAP-02 — Distributed Execution Without Shared Filesystem
 
 | Field | Content |
 |-------|---------|
-| **Actor(s)** | Non-Python clients (C++, Julia, JavaScript dashboards), external tools |
-| **Summary** | The system should expose context state through a language-neutral interface, using a portable serialization format (Protocol Buffers, JSON-Schema, Arrow), a query API (REST, gRPC, or GraphQL), and type definitions shared across languages. |
-| **Postconditions** | Clients in any supported language can read context state through a stable, typed API. |
+| **Actor(s)** | Workflow orchestration layer, distributed workers |
+| **Summary** | The system must support execution across nodes that do not share a filesystem. Processing state, artifacts, and datasets must be accessible to all participating nodes without relying on a shared local filesystem.|
+| **Postconditions** | Processing completes correctly across distributed nodes without reliance on a shared filesystem. |
+| **RADPS Requirements** | CSS9002, CSS9030 |
 
 ---
 
-### GAP-04 — Streaming / Incremental Processing
-
-| Field | Content |
-|-------|---------|
-| **Actor(s)** | Data ingest system, workflow engine, incremental processing tasks |
-| **Summary** | The system should support incremental dataset registration (adding new scans or execution blocks to a live session), tasks that detect new data and re-process incrementally, and a results model that supports versioning so that re-runs produce new versions rather than overwriting previous outputs. |
-| **Postconditions** | New data is incorporated into an active session and processed without restarting from scratch. |
-
----
-
-### GAP-05 — Provenance and Reproducibility Guarantees
+### GAP-03 — Provenance and Reproducibility
 
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, auditor, reproducibility tooling |
-| **Summary** | The system should maintain immutable per-stage snapshots of context state (event sourcing), hash all task inputs (context fields and parameters) for cache invalidation and reproducibility tokens, record software provenance (pipeline version, framework version, dependency manifest) and input data identity (checksums or URIs for raw datasets) per run, and support replaying a run from the event log. |
+| **Summary** | The system must record sufficient provenance information — software versions, input data identity, task parameters, and processing state at each stage — to enable a past processing run to be precisely reproduced or audited.|
 | **Postconditions** | Any past processing step can be precisely reproduced or audited from the recorded provenance chain, including the exact software and data versions that produced it. |
+| **RADPS Requirements** | ALMA-TR103, ALMA-TR104, ALMA-TR105 |
 
 ---
 
-### GAP-06 — Partial Re-Execution / Targeted Stage Re-Run
+### GAP-04 — Partial Re-Execution / Targeted Stage Re-Run
 
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, developer, workflow engine |
-| **Summary** | The system should support selectively re-running a single mid-pipeline stage with different parameters while keeping earlier and later stages intact. This requires explicit dependency tracking between stages, the ability to invalidate downstream stages, and versioned per-stage results. |
-| **Postconditions** | A targeted stage is re-executed and downstream state is correctly invalidated or updated; unaffected stages are preserved. |
+| **Summary** | The system must support selectively re-running a single mid-pipeline stage with different parameters while keeping earlier and later stages intact. Stages that depend on the re-executed stage's outputs must be invalidated or updated; stages that do not must be preserved. Note: CSS9038 explicitly requires re-start at discrete stages; dependency-aware invalidation of downstream stages is implied rather than explicitly stated.|
+| **Postconditions** | After a targeted re-execution, processing state reflects the new outcome for the re-run stage, affected downstream stages are invalidated or updated, and unaffected stages are preserved. |
+| **RADPS Requirements** | CSS9038 |
 
----
-
-### GAP-07 — External System Integration (Archive, Scheduling, QA Dashboards)
-
-| Field | Content |
-|-------|---------|
-| **Actor(s)** | Archive ingest system, scheduling database, QA dashboards, monitoring tools |
-| **Summary** | The system could expose a stable, queryable API (REST/gRPC) that external systems can poll or subscribe to, support webhook/event notifications for state transitions, and publish a standard schema for context summaries consumable by external systems. However, this involves a significant trade-off: the current context has no stable API, which gives development teams full flexibility to evolve internal structures without cross-team coordination. A public API would require a formal stability contract, versioning discipline, and potentially a slow-to-change external interface layered over rapidly evolving internals. Whether this gap is in scope — or whether external integration should remain an offline, product-file-based concern — is an open design question. |
-| **Postconditions** | External systems receive timely, structured updates about processing state without relying on offline product files. |
