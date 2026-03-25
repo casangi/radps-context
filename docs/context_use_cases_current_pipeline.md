@@ -5,7 +5,7 @@ The pipeline `Context` is the central state object used for an entire pipeline e
 It carries observation data, calibration state, imaging state, execution history, 
 and project metadata, and serves as the primary communication channel between pipeline stages.
 
-This document catalogues the current use cases of the pipeline Context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline Context for RADPS. It also identifies an initial set of use cases that the current design does not support but that are required or implied by RADPS requirements documentation.
+This document catalogues the current use cases of the pipeline `Context` as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline Context for RADPS. It also identifies an initial set of use cases that the current design does not support but that are required or implied by RADPS requirements documentation.
 
 For additional details about the current implementation, reference material, and exploratory future use cases, see [Supplementary Analysis](context_current_pipeline_appendix.md).
 
@@ -13,8 +13,7 @@ For additional details about the current implementation, reference material, and
 
 ## 1. Use Cases
 
-Each use case describes a need that the pipeline `Context` must satisfy. They are written to be implementation-neutral — the goal is to capture what the system must do, not 
-how the current pipeline implementation achieves it. For pipeline-specific implementation details by use case, see [Implementation Notes by Use Case](context_current_pipeline_appendix.md#implementation-notes-by-use-case) in the appendix.
+Each use case describes a need that the pipeline `Context` must satisfy. They are written to be implementation-neutral — the goal is to capture what the system must do, not how the current pipeline implementation achieves it. For pipeline-specific implementation details by use case, see [Implementation Notes by Use Case](context_current_pipeline_appendix.md#implementation-notes-by-use-case) in the appendix.
 
 The following fields are used in each use case:
 
@@ -203,7 +202,7 @@ current implementations.
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, event subscribers (loggers, progress monitors) |
-| **Summary** | The system must emit notifications at key lifecycle points (session start, session restore, step start, step completion, result acceptance) so that external observers (logging, progress reporting, live dashboards) can track execution without polling. |
+| **Summary** | The system must emit notifications at key lifecycle points (session start, session restore, step start, step completion, result acceptance) so that external observers (logging, progress reporting) can track execution without polling. |
 | **Invariant** | Subscribers are notified of lifecycle transitions as they occur. |
 
 ---
@@ -259,3 +258,14 @@ Reviewer input on missing or incorrectly included items is welcome.
 | **Postconditions** | After a targeted re-execution, processing state reflects the new outcome for the re-run stage, affected downstream stages are invalidated or updated, and unaffected stages are preserved. |
 | **RADPS Requirements** | CSS9038 |
 
+---
+
+### GAP-05: External System Integration (Archive, Scheduling, QA Dashboards)
+
+| Field | Content |
+|-------|---------|
+| **Actor(s)** | QA dashboards, monitoring tools, archive ingest systems, scheduling systems |
+| **Summary** | External systems need access to current processing state — including current stage, processing time, QA results, and lifecycle transitions — without relying on offline product files. The system must expose sufficient state for these consumers to track and respond to processing status in a timely way. |
+| **Invariant** | The processing state needed by external consumers is accessible and current throughout execution. |
+| **Postconditions** | External systems can access processing state and lifecycle transitions without waiting for offline products to be generated. |
+| **RADPS Requirements** | CSS9046, CSS9047, CSS9048, CSS9049, CSS9050, CSS9056 |
