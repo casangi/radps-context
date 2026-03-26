@@ -26,13 +26,13 @@ current implementations.
 
 ---
 
-### UC-01 — Load and Provide Access to Observation Metadata
+### UC-01 — Load, Update, and Provide Access to Observation Metadata
 
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Data import task, any downstream task, heuristics, renderers, QA handlers |
-| **Summary** | The context must load observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges) and make it queryable by all subsequent processing steps. It must also provide a unified identifier scheme when multiple datasets use different native numbering. |
-| **Invariant** | All registered datasets remain queryable for the lifetime of the session without repeating the import process. |
+| **Summary** | The context must load observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges), make it queryable by all subsequent processing steps, and allow downstream tasks to update it as processing progresses (e.g., registering new derived datasets, data column and type changes, reference antenna selection). It must also provide a unified identifier scheme when multiple datasets use different native numbering. |
+| **Invariant** | All registered datasets remain queryable and updatable for the lifetime of the session without repeating the import process. |
 
 ---
 
@@ -41,7 +41,7 @@ current implementations.
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Initialization, any task, report generators |
-| **Summary** | The context must store project-level metadata (proposal code, PI, telescope, desired sensitivities, processing recipe) and make it available to tasks for decision-making and to report generators for labelling outputs. |
+| **Summary** | The context must store project-level metadata (proposal code, PI, telescope, desired sensitivities, processing recipe) and make it available to tasks for decision-making and to report generators to inform the output. |
 | **Invariant** | Project metadata is available for the lifetime of the processing session. |
 
 ---
@@ -76,30 +76,37 @@ current implementations.
 
 ---
 
-### UC-06 — Track Execution Progress and Stage History
+### UC-06 — Track Current Execution Progress
 
 | Field | Content |
 |-------|---------|
-| **Actor(s)** | Workflow orchestration layer, tasks, report generators, human operators |
-| **Summary** | The context must track which processing step is currently executing and maintain a stable, ordered history of completed steps and their outcomes. This history must support reporting, script generation, and resumption after interruption. Per-stage tracebacks and timings must be preserved, and stage identity and ordering must remain coherent across resumes. |
-| **Invariant** | The full execution history is retrievable in order; each recorded step retains its stage identity, outcome, timing, traceback information, and the arguments or effective parameters used to invoke it. |
+| **Actor(s)** | Workflow orchestration layer, tasks, human operators |
+| **Summary** | The system must track which processing stage is currently executing and maintain a stable, ordered record of completed stages. Stage identity and ordering must remain coherent across session saves and resumes. |
+| **Invariant** | The currently executing stage is identifiable and completed stages are recorded in stable order. |
 
----
+___
 
-### UC-07 — Propagate Task Outputs to Downstream Tasks
+### UC-07 — Preserve Per-Stage Execution Record
 
 | Field | Content |
 |-------|---------|
-| **Actor(s)** | Any task producing output that subsequent tasks depend on |
-| **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the system must provide a mechanism for those outputs to become available to subsequent processing steps. It must also retain those outputs as part of the execution record for later inspection, reporting, and export. These two needs may be satisfied through different access paths. |
-| **Postconditions** | Downstream tasks can access the propagated processing state they need, and the task outputs are retained in the execution history for later retrieval. |
-
-# TODO: Tom suggestion
-The context must provide explicit, structured mechanisms for accepting task outputs into shared processing state and for retaining those outputs in the execution record.
+| **Actor(s)** | Report generators, human operators, workflow orchestration layer |
+| **Summary** | The system must preserve a complete execution record for each completed stage, including timing, traceback information, outcomes, and the arguments used to invoke it. This record must support reporting, post-mortem diagnosis of failures, and resumption after interruption. |
+| **Invariant** | Each completed stage retains its full execution record  identity, outcome, timing, traceback, and invocation arguments for the lifetime of the session. |
 
 ---
 
-### UC-08 — Support Multiple Orchestration Drivers
+### UC-08 — Propagate Task Outputs to Downstream Tasks
+
+| Field | Content |
+|-------|---------|
+| **Actor(s)** | Any task producing output, downstream tasks |
+| **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the context must provide a mechanism for those outputs to become available to subsequent processing steps before they execute. UC-03, UC-04, UC-05, and UC-14 are domain-specific instances of this pattern. |
+| **Postconditions** | Downstream tasks can access the propagated processing state they need.|
+
+---
+
+### UC-09 — Support Multiple Orchestration Drivers
 
 | Field | Content |
 |-------|---------|
@@ -109,7 +116,7 @@ The context must provide explicit, structured mechanisms for accepting task outp
 
 ---
 
-### UC-09 — Save and Restore a Processing Session
+### UC-10 — Save and Restore a Processing Session
 
 | Field | Content |
 |-------|---------|
@@ -119,7 +126,7 @@ The context must provide explicit, structured mechanisms for accepting task outp
 
 ---
 
-### UC-10 — Provide State to Parallel Workers
+### UC-11 — Provide State to Parallel Workers
 
 | Field | Content |
 |-------|---------|
@@ -130,7 +137,7 @@ The context must provide explicit, structured mechanisms for accepting task outp
 
 ---
 
-### UC-11 — Aggregate Results from Parallel Workers
+### UC-12 — Aggregate Results from Parallel Workers
 
 | Field | Content |
 |-------|---------|
@@ -140,17 +147,17 @@ The context must provide explicit, structured mechanisms for accepting task outp
 
 ---
 
-### UC-12 — Provide Read-Only State for Reporting
+### UC-13 — Provide Read-Only State for Reporting
 
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Report generators (weblog, quality reports, reproducibility scripts, AQUA reports, pipeline statistics) |
-| **Summary** | The context must provide read-only access to the observation metadata, project metadata, execution history, QA outcomes, log references, and path information needed to generate reporting products such as weblogs, quality reports, reproducibility scripts, AQUA reports, and pipeline statistics. |
+| **Summary** | The context must provide read-only access to the observation metadata, project metadata, execution history (including per-stage domain-specific outputs such as flag summaries and plot references), QA outcomes, log references, and path information needed to generate reporting products such as weblogs, quality reports, reproducibility scripts, AQUA reports, and pipeline statistics. |
 | **Postconditions** | Reports accurately reflect the processing state at the time of generation. |
 
 ---
 
-### UC-13 — Support QA Evaluation and Store Quality Assessments
+### UC-14 — Support QA Evaluation and Store Quality Assessments
 
 | Field | Content |
 |-------|---------|
@@ -160,7 +167,7 @@ The context must provide explicit, structured mechanisms for accepting task outp
 
 ---
 
-### UC-14 — Support Interactive Inspection and Debugging
+### UC-15 — Support Interactive Inspection and Debugging
 
 | Field | Content |
 |-------|---------|
@@ -170,7 +177,7 @@ The context must provide explicit, structured mechanisms for accepting task outp
 
 ---
 
-### UC-15 — Manage Telescope-Specific Context Extensions
+### UC-16 — Manage Telescope-Specific Context Extensions
 
 | Field | Content |
 |-------|---------|
@@ -180,7 +187,7 @@ The context must provide explicit, structured mechanisms for accepting task outp
 
 ---
 
-### UC-16 — Provide State for Product Export
+### UC-17 — Provide State for Product Export
 
 | Field | Content |
 |-------|---------|
