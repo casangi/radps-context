@@ -41,28 +41,28 @@ current implementations.
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Initialization, any task, report generators |
-| **Summary** | The context must store project-level metadata (proposal code, PI, telescope, desired sensitivities, processing recipe) and make it available to tasks for decision-making and to report generators to inform the output. |
+| **Summary** | The context must store project-level metadata (proposal code, PI, telescope, desired sensitivities, processing recipe) and make it available to all components, e.g,, for decision-making in heuristics and to label outputs in reports. |
 | **Invariant** | Project metadata is available for the lifetime of the processing session. |
 
 ---
 
-### UC-03 — Register and Query Calibration State
+### UC-03 — Register, Query, and Update Calibration State
 
 | Field | Content |
 |-------|---------|
-| **Actor(s)** | Calibration tasks |
-| **Summary** | The context must allow calibration tasks to register solutions (indexed by data selection: field, spectral window, antenna, intent, time interval), and allow downstream tasks to query for all calibrations applicable to a given data selection. It must distinguish between calibrations pending application and those already applied. Registration must support transactional multi-entry updates — tasks often register multiple calibrations atomically within a single result acceptance. |
-| **Invariant** | Calibration state is queryable and correctly scoped to data selections. |
+| **Actor(s)** | Calibration tasks, imaging tasks, flagging tasks, export tasks, report generators |
+| **Summary** | The context must allow calibration tasks to register and update solutions (indexed by data selection: field, spectral window, antenna, intent, time interval), and allow downstream tasks to query for all calibrations applicable to a given data selection. It must distinguish between calibrations pending application and those already applied. Registration must support registering multiple calibrations atomically as part of a single operation. |
+| **Invariant** | Calibration state is queryable and correctly scoped to data selections, and can be updated as processing progresses. |
 
 ---
 
-### UC-04 — Accumulate Imaging State Across Multiple Steps
+### UC-04 — Manage Imaging State
 
 | Field | Content |
 |-------|---------|
 | **Actor(s)** | Imaging tasks, downstream heuristics, and export tasks |
 | **Summary** | The context must allow imaging state — target lists, imaging parameters, masks, thresholds, and sensitivity estimates — to be computed by one step and read or refined by later steps. Multiple steps may contribute to a progressively refined imaging configuration. |
-| **Invariant** | The accumulated imaging state reflects contributions from all completed imaging-related steps and is available to later imaging steps. |
+| **Invariant** | Imaging state reflects contributions from all completed imaging-related stages, and available for reading or refinement by subsequent stages. |
 
 ---
 
