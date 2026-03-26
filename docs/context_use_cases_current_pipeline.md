@@ -28,7 +28,7 @@ current implementations.
 
 ### UC-01 — Load, Update, and Provide Access to Observation Metadata
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Data import task, any downstream task, heuristics, renderers, QA handlers |
 | **Summary** | The context must load observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges), make it queryable by all subsequent processing steps, and allow downstream tasks to update it as processing progresses (e.g., registering new derived datasets, data column and type changes, reference antenna selection). It must also provide a unified identifier scheme when multiple datasets use different native numbering. |
@@ -38,7 +38,7 @@ current implementations.
 
 ### UC-02 — Store and Provide Project-Level Metadata
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Initialization, any task, report generators |
 | **Summary** | The context must store project-level metadata (proposal code, PI, telescope, desired sensitivities, processing recipe) and make it available to all components, e.g,, for decision-making in heuristics and to label outputs in reports. |
@@ -48,7 +48,7 @@ current implementations.
 
 ### UC-03 — Register, Query, and Update Calibration State
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Calibration tasks, imaging tasks, flagging tasks, export tasks, report generators |
 | **Summary** | The context must allow calibration tasks to register and update solutions (indexed by data selection: field, spectral window, antenna, intent, time interval), and allow downstream tasks to query for all calibrations applicable to a given data selection. It must distinguish between calibrations pending application and those already applied. Registration must support registering multiple calibrations atomically as part of a single operation. |
@@ -58,7 +58,7 @@ current implementations.
 
 ### UC-04 — Manage Imaging State
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Imaging tasks, downstream heuristics, and export tasks |
 | **Summary** | The context must allow imaging state — target lists, imaging parameters, masks, thresholds, and sensitivity estimates — to be computed by one step and read or refined by later steps. Multiple steps may contribute to a progressively refined imaging configuration. |
@@ -68,7 +68,7 @@ current implementations.
 
 ### UC-05 — Register and Query Produced Image Products
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Imaging tasks, export tasks, report generators |
 | **Summary** | The context must maintain typed registries of produced image products with add/query semantics. Later tasks must be able to discover previously produced science, calibrator, RMS, and sub-product images through these registries. |
@@ -78,7 +78,7 @@ current implementations.
 
 ### UC-06 — Track Current Execution Progress
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, tasks, human operators |
 | **Summary** | The system must track which processing stage is currently executing and maintain a stable, ordered record of completed stages. Stage identity and ordering must remain coherent across session saves and resumes. |
@@ -88,7 +88,7 @@ ___
 
 ### UC-07 — Preserve Per-Stage Execution Record
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Report generators, human operators, workflow orchestration layer |
 | **Summary** | The system must preserve a complete execution record for each completed stage, including timing, traceback information, outcomes, and the arguments used to invoke it. This record must support reporting, post-mortem diagnosis of failures, and resumption after interruption. |
@@ -98,7 +98,7 @@ ___
 
 ### UC-08 — Propagate Task Outputs to Downstream Tasks
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Any task producing output, downstream tasks |
 | **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the context must provide a mechanism for those outputs to become available to subsequent processing steps before they execute. UC-03, UC-04, UC-05, and UC-14 are domain-specific instances of this pattern. |
@@ -108,7 +108,7 @@ ___
 
 ### UC-09 — Support Multiple Orchestration Drivers
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Operations / automated processing (PPR-driven batch), pipeline developer / power user (interactive), recipe executor |
 | **Summary** | The context is created and consumed by multiple front-ends: PPR command lists, XML procedures, or interactive task calls. The state stored by the context must remain consistent and usable regardless of which driver created or resumed it. It must be creatable and resumable from non-interactive and interactive drivers, support driver-injected run metadata, tolerate partial execution controls (`startstage`, `exitstage`) and breakpoint-driven stop/resume semantics, provide machine-detectable success/failure signals, and emit notifications at key lifecycle points (session start, session restore, step start, step completion).|
@@ -118,7 +118,7 @@ ___
 
 ### UC-10 — Save and Restore a Processing Session
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, workflow orchestration layer, developers |
 | **Summary** | The context must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata, etc) and later restore it so that processing can resume from the saved point. The serialization must preserve enough state to resume; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
@@ -128,7 +128,7 @@ ___
 
 ### UC-11 — Provide State to Parallel Workers
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, parallel worker processes |
 | **Summary** | When work is distributed across parallel workers, each worker needs read-only access to the current processing state (observation metadata, calibration state). The context must provide a mechanism for workers to obtain a consistent snapshot of that state. Workers must not be able to modify the shared processing state directly. The snapshot mechanism must support efficient distribution to workers. |
@@ -139,7 +139,7 @@ ___
 
 ### UC-12 — Aggregate Results from Parallel Workers
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer |
 | **Summary** | After parallel workers complete, the context must collect their individual results and incorporate them into the shared processing state. The aggregation must be safe (no conflicting concurrent writes) and complete before the next sequential step begins. |
@@ -149,7 +149,7 @@ ___
 
 ### UC-13 — Provide Read-Only State for Reporting
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Report generators (weblog, quality reports, reproducibility scripts, AQUA reports, pipeline statistics) |
 | **Summary** | The context must provide read-only access to the observation metadata, project metadata, execution history (including per-stage domain-specific outputs such as flag summaries and plot references), QA outcomes, log references, and path information needed to generate reporting products such as weblogs, quality reports, reproducibility scripts, AQUA reports, and pipeline statistics. |
@@ -159,7 +159,7 @@ ___
 
 ### UC-14 — Support QA Evaluation and Store Quality Assessments
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | QA scoring framework, report generators, tasks that consult recorded QA outcomes |
 | **Summary** | After each processing step completes, the context must make the relevant processing state available to QA handlers so they can evaluate the outcome against quality thresholds, which may depend on telescope, project parameters, or observation properties. The resulting quality scores must be recorded and remain retrievable for reporting and for later pipeline logic that consults recorded QA outcomes. |
@@ -169,7 +169,7 @@ ___
 
 ### UC-15 — Support Interactive Inspection and Debugging
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Pipeline developer, pipeline operator, CI harnesses |
 | **Summary** | The context must allow an operator to inspect the current processing state, for example: which datasets are registered, what calibrations exist, how many steps have completed, and what their outcomes were. On failure, a snapshot of the state must be available for post-mortem analysis. |
@@ -179,7 +179,7 @@ ___
 
 ### UC-16 — Manage Telescope-Specific Context Extensions
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Telescope-specific tasks and heuristics |
 | **Summary** | The context must support conditional telescope-specific extensions to the processing state. These extensions must be available to telescope-specific tasks and heuristics while remaining outside the assumed contract of shared pipeline code. Generic pipeline components must not depend on or require knowledge of telescope-specific extensions. |
@@ -189,7 +189,7 @@ ___
 
 ### UC-17 — Provide State for Product Export
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Export task |
 | **Summary** | The context must make the datasets, calibration state, image products, reports, scripts, path information, and project identifiers available through the processing state so export tasks can assemble them into a deliverable product package. |
@@ -207,7 +207,7 @@ Reviewer input on missing or incorrectly included items is welcome.
 
 ### GAP-01 — Concurrent Execution of Independent Work
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, parallel task scheduler |
 | **Summary** | The context must support concurrent execution of independent work at multiple granularities — both at the stage level, where independent stages execute simultaneously, and within a stage, where work is parallelized across processing axes such as MS or SPW. In both cases the context must ensure results are correctly incorporated into processing state without inconsistency. This is distinct from the existing parallel worker pattern (UC-11, UC-12), which distributes work within a single stage but requires all work to complete before the next stage can begin.|
@@ -219,7 +219,7 @@ Reviewer input on missing or incorrectly included items is welcome.
 
 ### GAP-02 — Distributed Execution Without Shared Filesystem
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, distributed workers |
 | **Summary** | The context must support execution across nodes that do not share a filesystem. Processing state, artifacts, and datasets must be accessible to all participating nodes without relying on a shared local filesystem.|
@@ -230,7 +230,7 @@ Reviewer input on missing or incorrectly included items is welcome.
 
 ### GAP-03 — Provenance and Reproducibility
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, auditor, reproducibility tooling |
 | **Summary** | The context must record sufficient provenance information — software versions, input data identity, task parameters, and processing state at each stage — to enable a past processing run to be precisely reproduced or audited.|
@@ -241,7 +241,7 @@ Reviewer input on missing or incorrectly included items is welcome.
 
 ### GAP-04 — Partial Re-Execution / Targeted Stage Re-Run
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, developer, workflow engine |
 | **Summary** | The context must support selectively re-running a single mid-pipeline stage with different parameters while keeping earlier and later stages intact. Stages that depend on the re-executed stage's outputs must be invalidated or updated; stages that do not must be preserved. Note: CSS9038 explicitly requires re-start at discrete stages; dependency-aware invalidation of downstream stages is implied rather than explicitly stated.|
@@ -252,7 +252,7 @@ Reviewer input on missing or incorrectly included items is welcome.
 
 ### GAP-05: External System Integration (Archive, Scheduling, QA Dashboards)
 
-| Field | Content |
+| | |
 |-------|---------|
 | **Actor(s)** | QA dashboards, monitoring tools, archive ingest systems, scheduling systems |
 | **Summary** | External systems need access to current processing state — including current stage, processing time, QA results, and lifecycle transitions — without relying on offline product files. The system must expose sufficient state for these consumers to track and respond to processing status in a timely way. |
