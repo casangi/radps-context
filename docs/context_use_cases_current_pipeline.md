@@ -5,7 +5,7 @@ The pipeline `Context` is the central state object used for an entire pipeline e
 It carries observation data, calibration state, imaging state, execution history, 
 and project metadata, and serves as the primary communication channel between pipeline stages.
 
-This document catalogues the current use cases of the pipeline `Context` as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline Context for RADPS. It also identifies an initial set of use cases that the current design does not support but that are required or implied by RADPS requirements documentation.
+This document catalogues the current use cases of the pipeline `Context` as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline `Context` for RADPS. It also identifies an initial set of use cases that the current design does not support but that are required or implied by RADPS requirements documentation.
 
 For additional details about the current implementation, reference material, and exploratory future use cases, see [Supplementary Analysis](context_current_pipeline_appendix.md).
 
@@ -13,14 +13,14 @@ For additional details about the current implementation, reference material, and
 
 ## 1. Use Cases
 
-Each use case describes a need that the pipeline `Context` must satisfy. They are written to be implementation-neutral — the goal is to capture what the system must do, not how the current pipeline implementation achieves it. For pipeline-specific implementation details by use case, see [Implementation Notes by Use Case](context_current_pipeline_appendix.md#implementation-notes-by-use-case) in the appendix.
+Each use case describes the required capabilities of the context system and the interactions through which those capabilities are exercised. They are written to be implementation-neutral — the goal is to capture what the context must do, not how the current pipeline implementation achieves it. For pipeline-specific implementation details by use case, see [Implementation Notes by Use Case](context_current_pipeline_appendix.md#implementation-notes-by-use-case) in the appendix.
 
 The following fields are used in each use case:
 
 - **Actor(s):** The human or system role that directly creates, updates, consumes, or inspects the 
 context state described by the use case. Actors are role categories, not specific task names or 
 current implementations.
-- **Summary:** What the system must do to satisfy the use case.
+- **Summary:** What the `Context` must do to satisfy the use case.
 - **Invariant:** A condition that must always be true while the system is operating. Present only where a meaningful invariant exists.
 - **Postcondition:** A condition that must be true after a specific operation completes. Present only where a meaningful postcondition exists.
 
@@ -81,7 +81,7 @@ current implementations.
 | | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, tasks, human operators |
-| **Summary** | The system must track which processing stage is currently executing and maintain a stable, ordered record of completed stages. Stage identity and ordering must remain coherent across session saves and resumes. |
+| **Summary** | The `Context` must track which processing stage is currently executing and maintain a stable, ordered record of completed stages. Stage identity and ordering must remain coherent across session saves and resumes. |
 | **Invariant** | The currently executing stage is identifiable and completed stages are recorded in stable order. |
 
 ___
@@ -91,7 +91,7 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Report generators, human operators, workflow orchestration layer |
-| **Summary** | The system must preserve a complete execution record for each completed stage, including timing, traceback information, outcomes, and the arguments used to invoke it. This record must support reporting, post-mortem diagnosis of failures, and resumption after interruption. |
+| **Summary** | The `Context` must preserve a complete execution record for each completed stage, including timing, traceback information, outcomes, and the arguments used to invoke it. This record must support reporting, post-mortem diagnosis of failures, and resumption after interruption. |
 | **Invariant** | Each completed stage retains its full execution record  identity, outcome, timing, traceback, and invocation arguments for the lifetime of the session. |
 
 ---
@@ -102,7 +102,7 @@ ___
 |-------|---------|
 | **Actor(s)** | Any task producing output, downstream tasks |
 | **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the context must provide a mechanism for those outputs to become available to subsequent processing steps before they execute. UC-03, UC-04, UC-05, and UC-14 are domain-specific instances of this pattern. |
-| **Postconditions** | Downstream tasks can access the propagated processing state they need.|
+| **Postconditions** | Downstream tasks can access the propagated processing state they need. |
 
 ---
 
@@ -111,8 +111,8 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Operations / automated processing (PPR-driven batch), pipeline developer / power user (interactive), recipe executor |
-| **Summary** | The context is created and consumed by multiple front-ends: PPR command lists, XML procedures, or interactive task calls. The state stored by the context must remain consistent and usable regardless of which driver created or resumed it. It must be creatable and resumable from non-interactive and interactive drivers, support driver-injected run metadata, tolerate partial execution controls (`startstage`, `exitstage`) and breakpoint-driven stop/resume semantics, provide machine-detectable success/failure signals, and emit notifications at key lifecycle points (session start, session restore, step start, step completion).|
-| **Invariant** | Processing state is consistent and usable regardless of which orchestration driver created or resumed it, and success/failure signals and lifecycle notifications are produced when appropriate.|
+| **Summary** | The context is created and consumed by multiple front-ends: PPR command lists, XML procedures, or interactive task calls. The state stored by the context must remain consistent and usable regardless of which driver created or resumed it. It must be creatable and resumable from non-interactive and interactive drivers, support driver-injected run metadata, and tolerate partial execution controls (`startstage`, `exitstage`) and breakpoint-driven stop/resume semantics. |
+| **Invariant** | Processing state is consistent and usable regardless of which orchestration driver created or resumed it, and success/failure signals are produced when appropriate. |
 
 ---
 
@@ -200,8 +200,7 @@ ___
 ## 2. Use Cases the Current Design Cannot Handle
 
 The following use cases are not supported by the current context design but are required or strongly 
-implied by RADPS requirement and design documentation. These use cases were identified through a first pass 
-of the RADPS requirements documentation and are not exhaustive. A full gap analysis mapping current context use cases to RADPS requirements is a separate activity which is underway. These are numbered GAP-01 through GAP-04 to indicate gaps in the current design's capabilities.
+implied by RADPS requirement and design documentation. These use cases were identified through a first pass of the RADPS requirements documentation and are not exhaustive. A full gap analysis mapping current context use cases to RADPS requirements is a separate activity which is underway. These are numbered GAP-01 through GAP-04 to indicate gaps in the current design's capabilities.
 
 Reviewer input on missing or incorrectly included items is welcome.
 
@@ -255,7 +254,7 @@ Reviewer input on missing or incorrectly included items is welcome.
 | | |
 |-------|---------|
 | **Actor(s)** | QA dashboards, monitoring tools, archive ingest systems, scheduling systems |
-| **Summary** | External systems need access to current processing state — including current stage, processing time, QA results, and lifecycle transitions — without relying on offline product files. The system must expose sufficient state for these consumers to track and respond to processing status in a timely way. |
+| **Summary** | External systems need access to current processing state — including current stage, processing time, QA results, and lifecycle transitions — without relying on offline product files. The `Context` must expose sufficient state for these consumers to track and respond to processing status in a timely way. |
 | **Invariant** | The processing state needed by external consumers is accessible and current throughout execution. |
 | **Postconditions** | External systems can access processing state and lifecycle transitions without waiting for offline products to be generated. |
 | **RADPS Requirements** | CSS9046, CSS9047, CSS9048, CSS9049, CSS9050, CSS9056 |
