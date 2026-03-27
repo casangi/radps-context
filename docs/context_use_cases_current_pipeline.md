@@ -1,11 +1,11 @@
 # Pipeline Context Use Cases
 
 ## Overview
-The pipeline `Context` is the central state object used for an entire pipeline execution. 
+The pipeline context is the central state object used for an entire pipeline execution. 
 It carries observation data, calibration state, imaging state, execution history, 
 and project metadata, and serves as the primary communication channel between pipeline stages.
 
-This document catalogues the current use cases of the pipeline `Context` as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline `Context` for RADPS. It also identifies an initial set of use cases that the current design does not support but that are required or implied by RADPS requirements documentation.
+This document catalogues the current use cases of the pipeline context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS. It also identifies an initial set of use cases that the current design does not support but that are required or implied by RADPS requirements documentation.
 
 For additional details about the current implementation, reference material, and exploratory future use cases, see [Supplementary Analysis](context_current_pipeline_appendix.md).
 
@@ -20,7 +20,7 @@ The following fields are used in each use case:
 - **Actor(s):** The human or system role that directly creates, updates, consumes, or inspects the 
 context state described by the use case. Actors are role categories, not specific task names or 
 current implementations.
-- **Summary:** What the `Context` must do to satisfy the use case.
+- **Summary:** What the context must do to satisfy the use case.
 - **Invariant:** A condition that must always be true while the system is operating. Present only where a meaningful invariant exists.
 - **Postcondition:** A condition that must be true after a specific operation completes. Present only where a meaningful postcondition exists.
 
@@ -81,7 +81,7 @@ current implementations.
 | | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, tasks, human operators |
-| **Summary** | The `Context` must track which processing stage is currently executing and maintain a stable, ordered record of completed stages. Stage identity and ordering must remain coherent across session saves and resumes. |
+| **Summary** | The context must track which processing stage is currently executing and maintain a stable, ordered record of completed stages. Stage identity and ordering must remain coherent across session saves and resumes. |
 | **Invariant** | The currently executing stage is identifiable and completed stages are recorded in stable order. |
 
 ___
@@ -91,7 +91,7 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Report generators, human operators, workflow orchestration layer |
-| **Summary** | The `Context` must preserve a complete execution record for each completed stage, including timing, traceback information, outcomes, and the arguments used to invoke it. This record must support reporting, post-mortem diagnosis of failures, and resumption after interruption. |
+| **Summary** | The context must preserve a complete execution record for each completed stage, including timing, traceback information, outcomes, and the arguments used to invoke it. This record must support reporting, post-mortem diagnosis of failures, and resumption after interruption. |
 | **Invariant** | Each completed stage retains its full execution record  identity, outcome, timing, traceback, and invocation arguments for the lifetime of the session. |
 
 ---
