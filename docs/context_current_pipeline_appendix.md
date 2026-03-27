@@ -204,37 +204,3 @@ The canonical flow through the context is:
 3. **Execute tasks** — Tasks execute against the in-memory context and return a `Results` object. After each task, `Results.accept(context)` records the outcome and mutates shared state.
 4. **Accept results** — Inside `accept()`, results are merged via `Results.merge_with_context(context)`. A `ResultsProxy` is pickled to disk per-stage to keep the in-memory context bounded. The weblog is typically rendered after each top-level stage.
 5. **Save / resume** — `h_save()` pickles the context; `h_resume(filename='last')` restores it. Driver-managed breakpoints and developer debugging workflows rely on this cycle.
-
----
-## Exploratory Future Use Cases
-
-The following are potential future use cases that do not trace to current RADPS architecture or requirements.
-They are recorded here for completeness but should not be treated as requirements. 
-
-### Multi-Language / Multi-Framework Access to Context
-
-| Field | Content |
-|-------|---------|
-| **Actor(s)** | Non-Python clients (C++, Julia, JavaScript dashboards), external tools |
-| **Summary** | The system should expose context state through a language-neutral interface, using a portable serialization format (Protocol Buffers, JSON-Schema, Arrow), a query API (REST, gRPC, or GraphQL), and type definitions shared across languages. |
-| **Postconditions** | Clients in any supported language can read context state through a stable, typed API. |
-
----
-
-### Streaming / Incremental Processing
-
-| Field | Content |
-|-------|---------|
-| **Actor(s)** | Data ingest system, workflow engine, incremental processing tasks |
-| **Summary** | The system should support incremental dataset registration (adding new scans or execution blocks to a live session), tasks that detect new data and re-process incrementally, and a results model that supports versioning so that re-runs produce new versions rather than overwriting previous outputs. |
-| **Postconditions** | New data is incorporated into an active session and processed without restarting from scratch. |
-
----
-
-### External System Integration (Archive, Scheduling, QA Dashboards)
-
-| Field | Content |
-|-------|---------|
-| **Actor(s)** | Archive ingest system, scheduling database, QA dashboards, monitoring tools |
-| **Summary** | The system could expose a stable, queryable API (REST/gRPC) that external systems can poll or subscribe to, support webhook/event notifications for state transitions, and publish a standard schema for context summaries consumable by external systems. However, this involves a significant trade-off: the current context has no stable API, which gives development teams full flexibility to evolve internal structures without cross-team coordination. A public API would require a formal stability contract, versioning discipline, and potentially a slow-to-change external interface layered over rapidly evolving internals. Whether this gap is in scope — or whether external integration should remain an offline, product-file-based concern — is an open design question. |
-| **Postconditions** | External systems receive timely, structured updates about processing state without relying on offline product files. |

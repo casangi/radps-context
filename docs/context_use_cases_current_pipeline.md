@@ -11,7 +11,7 @@ For additional details about the current implementation, reference material, and
 
 ---
 
-## 1. Use Cases
+## Use Cases
 
 Each use case describes the required capabilities of the context system and the interactions through which those capabilities are exercised. They are written to be implementation-neutral — the goal is to capture what the context must do, not how the current pipeline implementation achieves it. For pipeline-specific implementation details by use case, see [Implementation Notes by Use Case](context_current_pipeline_appendix.md#implementation-notes-by-use-case) in the appendix.
 
@@ -194,67 +194,3 @@ ___
 | **Actor(s)** | Export task |
 | **Summary** | The context must make the datasets, calibration state, image products, reports, scripts, path information, and project identifiers available through the processing state so export tasks can assemble them into a deliverable product package. |
 | **Invariant** | The information needed to assemble a deliverable product package is accessible through the processing state. |
-
----
-
-## 2. Use Cases the Current Design Cannot Handle
-
-The following use cases are not supported by the current context design but are required or strongly 
-implied by RADPS requirement and design documentation. These use cases were identified through a first pass of the RADPS requirements documentation and are not exhaustive. A full gap analysis mapping current context use cases to RADPS requirements is a separate activity which is underway. These are numbered GAP-01 through GAP-04 to indicate gaps in the current design's capabilities.
-
-Reviewer input on missing or incorrectly included items is welcome.
-
-### GAP-01 — Concurrent Execution of Independent Work
-
-| | |
-|-------|---------|
-| **Actor(s)** | Workflow orchestration layer, parallel task scheduler |
-| **Summary** | The context must support concurrent execution of independent work at multiple granularities — both at the stage level, where independent stages execute simultaneously, and within a stage, where work is parallelized across processing axes such as MS or SPW. In both cases the context must ensure results are correctly incorporated into processing state without inconsistency. This is distinct from the existing parallel worker pattern (UC-11, UC-12), which distributes work within a single stage but requires all work to complete before the next stage can begin.|
-| **Invariant** | Independent tasks are executed concurrently without producing inconsistent or incorrect processing state. | 
-| **Postconditions** | Results from concurrently executed work are fully incorporated into processing state before any dependent work begins. |
-| **RADPS Requirements** | CSS9017, CSS9063 |
-
----
-
-### GAP-02 — Distributed Execution Without Shared Filesystem
-
-| | |
-|-------|---------|
-| **Actor(s)** | Workflow orchestration layer, distributed workers |
-| **Summary** | The context must support execution across nodes that do not share a filesystem. Processing state, artifacts, and datasets must be accessible to all participating nodes without relying on a shared local filesystem.|
-| **Postconditions** | Processing completes correctly across distributed nodes without reliance on a shared filesystem. |
-| **RADPS Requirements** | CSS9002, CSS9030 |
-
----
-
-### GAP-03 — Provenance and Reproducibility
-
-| | |
-|-------|---------|
-| **Actor(s)** | Pipeline operator, auditor, reproducibility tooling |
-| **Summary** | The context must record sufficient provenance information — software versions, input data identity, task parameters, and processing state at each stage — to enable a past processing run to be precisely reproduced or audited.|
-| **Postconditions** | Any past processing step can be precisely reproduced or audited from the recorded provenance chain, including the exact software and data versions that produced it. |
-| **RADPS Requirements** | ALMA-TR103, ALMA-TR104, ALMA-TR105 |
-
----
-
-### GAP-04 — Partial Re-Execution / Targeted Stage Re-Run
-
-| | |
-|-------|---------|
-| **Actor(s)** | Pipeline operator, developer, workflow engine |
-| **Summary** | The context must support selectively re-running a single mid-pipeline stage with different parameters while keeping earlier and later stages intact. Stages that depend on the re-executed stage's outputs must be invalidated or updated; stages that do not must be preserved. Note: CSS9038 explicitly requires re-start at discrete stages; dependency-aware invalidation of downstream stages is implied rather than explicitly stated.|
-| **Postconditions** | After a targeted re-execution, processing state reflects the new outcome for the re-run stage, affected downstream stages are invalidated or updated, and unaffected stages are preserved. |
-| **RADPS Requirements** | CSS9038 |
-
----
-
-### GAP-05: External System Integration (Archive, Scheduling, QA Dashboards)
-
-| | |
-|-------|---------|
-| **Actor(s)** | QA dashboards, monitoring tools, archive ingest systems, scheduling systems |
-| **Summary** | External systems need access to current processing state — including current stage, processing time, QA results, and lifecycle transitions — without relying on offline product files. The `Context` must expose sufficient state for these consumers to track and respond to processing status in a timely way. |
-| **Invariant** | The processing state needed by external consumers is accessible and current throughout execution. |
-| **Postconditions** | External systems can access processing state and lifecycle transitions without waiting for offline products to be generated. |
-| **RADPS Requirements** | CSS9046, CSS9047, CSS9048, CSS9049, CSS9050, CSS9056 |
