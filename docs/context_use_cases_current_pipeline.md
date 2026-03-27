@@ -2,12 +2,12 @@
 
 ## Overview
 The pipeline context is the central state object used for an entire pipeline execution. 
-It carries observation data, calibration state, imaging state, execution history, 
-and project metadata, and serves as the primary communication channel between pipeline stages.
+It carries observation data, calibration state, imaging state, execution history and state, 
+project metadata, and serves as the primary communication channel between pipeline stages.
 
-This document catalogues the current use cases of the pipeline context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS. It also identifies an initial set of use cases that the current design does not support but that are required or implied by RADPS requirements documentation.
+This document catalogues the current use cases of the pipeline context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS. 
 
-For additional details about the current implementation, reference material, and exploratory future use cases, see [Supplementary Analysis](context_current_pipeline_appendix.md).
+For additional details about the current implementation and reference material. see [Supplementary Analysis](context_current_pipeline_appendix.md).
 
 ---
 
@@ -62,7 +62,7 @@ current implementations.
 |-------|---------|
 | **Actor(s)** | Imaging tasks, downstream heuristics, and export tasks |
 | **Summary** | The context must allow imaging state — target lists, imaging parameters, masks, thresholds, and sensitivity estimates — to be computed by one step and read or refined by later steps. Multiple steps may contribute to a progressively refined imaging configuration. |
-| **Invariant** | Imaging state reflects contributions from all completed imaging-related stages, and available for reading or refinement by subsequent stages. |
+| **Invariant** | Imaging state reflects contributions from all completed imaging-related stages, and is available for reading or refinement by subsequent stages. |
 
 ---
 
@@ -80,7 +80,7 @@ current implementations.
 
 | | |
 |-------|---------|
-| **Actor(s)** | Workflow orchestration layer, tasks, human operators |
+| **Actor(s)** | Workflow orchestration layer, tasks, pipeline operators |
 | **Summary** | The context must track which processing stage is currently executing and maintain a stable, ordered record of completed stages. Stage identity and ordering must remain coherent across session saves and resumes. |
 | **Invariant** | The currently executing stage is identifiable and completed stages are recorded in stable order. |
 
@@ -90,7 +90,7 @@ ___
 
 | | |
 |-------|---------|
-| **Actor(s)** | Report generators, human operators, workflow orchestration layer |
+| **Actor(s)** | Report generators, pipeline operators, workflow orchestration layer |
 | **Summary** | The context must preserve a complete execution record for each completed stage, including timing, traceback information, outcomes, and the arguments used to invoke it. This record must support reporting, post-mortem diagnosis of failures, and resumption after interruption. |
 | **Invariant** | Each completed stage retains its full execution record  identity, outcome, timing, traceback, and invocation arguments for the lifetime of the session. |
 
@@ -101,7 +101,7 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Any task producing output, downstream tasks |
-| **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the context must provide a mechanism for those outputs to become available to subsequent processing steps before they execute. UC-03, UC-04, UC-05, and UC-14 are domain-specific instances of this pattern. |
+| **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the context must provide a mechanism for those outputs to become available to subsequent processing steps before they execute. UC-03, UC-04, UC-05, and UC-14 are specific instances of this pattern. |
 | **Postconditions** | Downstream tasks can access the propagated processing state they need. |
 
 ---
@@ -120,7 +120,7 @@ ___
 
 | | |
 |-------|---------|
-| **Actor(s)** | Pipeline operator, workflow orchestration layer, developers |
+| **Actor(s)** | Pipeline operator, workflow orchestration layer, pipeline developer |
 | **Summary** | The context must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata, etc) and later restore it so that processing can resume from the saved point. The serialization must preserve enough state to resume; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
 | **Postconditions** | After restore, the processing state is operationally equivalent to the saved state for supported resume workflows, and processing can continue from the specified point. |
 
@@ -151,8 +151,8 @@ ___
 
 | | |
 |-------|---------|
-| **Actor(s)** | Report generators (weblog, quality reports, reproducibility scripts, AQUA reports, pipeline statistics) |
-| **Summary** | The context must provide read-only access to the observation metadata, project metadata, execution history (including per-stage domain-specific outputs such as flag summaries and plot references), QA outcomes, log references, and path information needed to generate reporting products such as weblogs, quality reports, reproducibility scripts, AQUA reports, and pipeline statistics. |
+| **Actor(s)** | Report generators (weblog, quality reports, reproducibility scripts, pipeline statistics) |
+| **Summary** | The context must provide read-only access to the observation metadata, project metadata, execution history (including per-stage domain-specific outputs such as flag summaries and plot references), QA outcomes, log references, and path information needed to generate reporting products such as weblogs, quality reports, reproducibility scripts, and pipeline statistics. |
 | **Postconditions** | Reports accurately reflect the processing state at the time of generation. |
 
 ---
@@ -161,13 +161,13 @@ ___
 
 | | |
 |-------|---------|
-| **Actor(s)** | QA scoring framework, report generators, tasks that consult recorded QA outcomes |
-| **Summary** | After each processing step completes, the context must make the relevant processing state available to QA handlers so they can evaluate the outcome against quality thresholds, which may depend on telescope, project parameters, or observation properties. The resulting quality scores must be recorded and remain retrievable for reporting and for later pipeline logic that consults recorded QA outcomes. |
-| **Postconditions** | Quality scores are associated with the relevant processing step and accessible to reports and downstream logic. |
+| **Actor(s)** | QA scoring framework, report generators |
+| **Summary** | After each processing step completes, the context must make the relevant processing state available to QA handlers so they can evaluate the outcome against quality thresholds, which may depend on e.g. telescope, project parameters, or observation properties. The resulting quality scores must be recorded and remain retrievable for reporting. |
+| **Postconditions** | Quality scores are associated with the relevant processing step and accessible to reports. |
 
 ---
 
-### UC-15 — Support Interactive Inspection and Debugging
+### UC-15 — Support Inspection and Debugging
 
 | | |
 |-------|---------|
@@ -177,12 +177,12 @@ ___
 
 ---
 
-### UC-16 — Manage Telescope-Specific Context Extensions
+### UC-16 — Manage Telescope-Specific State
 
 | | |
 |-------|---------|
 | **Actor(s)** | Telescope-specific tasks and heuristics |
-| **Summary** | The context must support conditional telescope-specific extensions to the processing state. These extensions must be available to telescope-specific tasks and heuristics while remaining outside the assumed contract of shared pipeline code. Generic pipeline components must not depend on or require knowledge of telescope-specific extensions. |
+| **Summary** | The context must support conditional telescope-specific extensions to the processing state. These extensions must be available to telescope-specific tasks and heuristics. Generic pipeline components must not depend on or require knowledge of telescope-specific extensions. |
 | **Invariant** | Telescope-specific extensions are present only for runs that require them, available to the tasks that need them, and are never assumed by shared pipeline code. |
 
 ---
@@ -191,6 +191,6 @@ ___
 
 | | |
 |-------|---------|
-| **Actor(s)** | Export task |
-| **Summary** | The context must make the datasets, calibration state, image products, reports, scripts, path information, and project identifiers available through the processing state so export tasks can assemble them into a deliverable product package. |
+| **Actor(s)** | Export tasks |
+| **Summary** | The context must make the datasets, calibration state, image products, reports, scripts, path information, project identifiers, and any other information needed for export available through the processing state so export tasks can assemble them into a deliverable product package. |
 | **Invariant** | The information needed to assemble a deliverable product package is accessible through the processing state. |
