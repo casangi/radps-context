@@ -41,7 +41,7 @@ current implementations.
 | | |
 |-------|---------|
 | **Actor(s)** | Initialization, any task, report generators |
-| **Summary** | The context must store project-level metadata (proposal code, PI, telescope, desired sensitivities, processing recipe) and make it available to all components, e.g,, for decision-making in heuristics and to label outputs in reports. |
+| **Summary** | The context must store project-level metadata (proposal code, PI, telescope, desired sensitivities, processing recipe) and make it available to all components, e.g., for decision-making in heuristics and to label outputs in reports. |
 | **Invariant** | Project metadata is available for the lifetime of the processing session. |
 
 ---
@@ -50,7 +50,7 @@ current implementations.
 
 | | |
 |-------|---------|
-| **Actor(s)** | Calibration tasks, imaging tasks, flagging tasks, export tasks, report generators |
+| **Actor(s)** | Calibration tasks, export tasks, restore tasks, report generators |
 | **Summary** | The context must allow calibration tasks to register and update solutions (indexed by data selection: field, spectral window, antenna, intent, time interval), and allow downstream tasks to query for all calibrations applicable to a given data selection. It must distinguish between calibrations pending application and those already applied. Registration must support registering multiple calibrations atomically as part of a single operation. |
 | **Invariant** | Calibration state is queryable and correctly scoped to data selections, and can be updated as processing progresses. |
 
