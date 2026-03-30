@@ -1,6 +1,6 @@
 # Pipeline Context: Supplementary Analysis
 
-This document contains and reference material that supplement the use cases in [context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md). These sections were separated to keep the use-case document focused on requirements.
+This document contains implementation details and reference material that supplement the use cases in [context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md). These sections were separated to keep the use-case document focused on requirements.
 
 ---
 
@@ -10,36 +10,29 @@ The following implementation notes describe how each use case is realized in the
 
 ### UC-01 — Load, Update, and Provide Access to Observation Metadata
 
-**Implementation notes** — `context.observing_run` is the most heavily queried attribute of the context:
+**Implementation notes** — `context.observing_run` holds the observation metadata and is the most frequently queried attribute of the context:
 
 - `context.observing_run.get_ms(name=vis)` — resolve an MS by filename
-- `context.observing_run.measurement_sets` — iterate all registered MS objects
+- `context.observing_run.measurement_sets` — all registered MS objects
 - `context.observing_run.get_measurement_sets_of_type(dtypes)` — filter by data type (RAW, REGCAL_CONTLINE_ALL, BASELINED, etc.)
 - `context.observing_run.virtual2real_spw_id(vspw, ms)` / `real2virtual_spw_id(...)` — translate between abstract pipeline SPW IDs and CASA-native IDs
 - `context.observing_run.virtual_science_spw_ids` — virtual SPW catalog
 - `context.observing_run.ms_reduction_group` — per-group reduction metadata (single-dish)
 - Provenance attributes: `start_datetime`, `end_datetime`, `project_ids`, `schedblock_ids`, `execblock_ids`, `observers`
 
-MS objects are rich domain objects carrying scans, fields, SPWs, antennas, reference antenna ordering, etc. Tasks read per-MS state like `ms.reference_antenna`, `ms.session`, `ms.start_time`, `ms.origin_ms`.
+The MS objects stored by `context.observing_run` carry information about scans, fields, SPWs, antennas, reference antenna ordering, etc. Tasks read per-MS state like `ms.reference_antenna`, `ms.session`, `ms.start_time`, `ms.origin_ms`.
 
 ---
 
 ### UC-02 — Store and Provide Project-Level Metadata
 
-**Implementation notes** — project metadata is set once at session start, is not modified after initialization, and is read many times:
+**Implementation notes** — project metadata is set during initialization or import, is not modified after import, and is read many times:
 
 - `context.project_summary = project.ProjectSummary(...)` — set by `executeppr()` / `executevlappr()`
 - `context.project_structure = project.ProjectStructure(...)` — set by PPR executors
 - `context.project_performance_parameters` — performance parameters from the PPR
 - `context.set_state('ProjectStructure', 'recipe_name', value)` — used by `recipereducer.reduce()` and SD heuristics
 - `context.processing_intents` — set by `Pipeline` during initialization
-
-Execution paths and output locations are also managed as part of project-level metadata:
-
-- Path roots: `output_dir`, `report_dir`, `products_dir`
-- Context name drives deterministic, named run directories
-- Relocation semantics are supported for results proxies (basenames stored) and common output layout
-- PPR-driven execution may derive paths from environment variables (e.g., `SCIPIPE_ROOTDIR`)
 
 ---
 
@@ -49,7 +42,7 @@ Execution paths and output locations are also managed as part of project-level m
 
 - **Write:** `context.callibrary.add(calto, calfrom)` — register a calibration application (cal table + target selection); `context.callibrary.unregister_calibrations(matcher)` — remove by predicate
 - **Read:** `context.callibrary.active.get_caltable(caltypes=...)` — list active cal tables; `context.callibrary.get_calstate(calto)` — get full application state for a target selection
-- Backed by `CalApplication` → `CalTo` / `CalFrom` objects with interval trees for efficient matching; append-mostly, ordered by registration time
+- Backed by `CalApplication` → `CalTo` / `CalFrom` objects with interval trees for efficient matching.
 
 ---
 
@@ -73,7 +66,7 @@ Execution paths and output locations are also managed as part of project-level m
 
 **Implementation notes** — image libraries provide typed registries:
 
-- `context.sciimlist.add_item(imageitem)` / `.get_imlist()` — science images
+- `context.sciimlist` — science images
 - `context.calimlist` — calibrator images
 - `context.rmsimlist` — RMS images
 - `context.subimlist` — sub-product images (cutouts, cubes)
@@ -84,7 +77,7 @@ Execution paths and output locations are also managed as part of project-level m
 
 **Implementation notes:**
 
-- `context.stage_number` and `context.task_counter` track progress
+- `context.stage`, `context.task_counter`, `context.subtask_counter` track progress
 
 ---
 
@@ -92,7 +85,7 @@ Execution paths and output locations are also managed as part of project-level m
 
 **Implementation notes:**
 
-- `context.results` holds an ordered list of `ResultsProxy` objects (proxied to disk to bound memory)
+- `context.results` holds an ordered list of `ResultsProxy` objects which are proxied to disk to bound memory
 - Timetracker integration provides per-stage timing data
 - Results proxies store basenames for portability
 
@@ -102,8 +95,8 @@ Execution paths and output locations are also managed as part of project-level m
 
 **Implementation notes** — the current pipeline satisfies these needs through two different propagation paths:
 
-1. **Immediate state propagation** — `Results.merge_with_context(context)` updates calibration library, image libraries, and other typed state so later tasks can access the current processing state directly.
-2. **Retained step-result access** — tasks read `context.results` to find outputs from earlier stages when those outputs are needed from the recorded execution history rather than from merged shared state. For example:
+1. **Immediate state propagation** — `Results.merge_with_context(context)` updates calibration library, image libraries, and more so later tasks can access the current processing state directly.
+2. **Serialized Results** — tasks read `context.results` to find outputs from earlier stages when those outputs are needed from the recorded results rather than from merged shared state. For example:
    - VLA tasks compute `stage_number` from `context.results[-1].read().stage_number + 1`
    - `vlassmasking` iterates `context.results[::-1]` to find the latest `MakeImagesResult`
    - Export/AQUA code reads `context.results[0]` and `context.results[-1]` for timestamps
@@ -112,12 +105,12 @@ Execution paths and output locations are also managed as part of project-level m
 
 ### UC-09 — Support Multiple Orchestration Drivers
 
-**Implementation notes** — two orchestration planes converge on the same task implementations:
+**Implementation notes** — multiple entry points converge on the same task execution path:
 
 - **Task-driven**: direct task calls via CLI wrappers in `pipeline/h/cli/`
 - **Command-list-driven**: PPR and XML procedure commands via `executeppr.py` / `executevlappr.py` and `recipereducer.py`
 
-They differ in how inputs are marshalled, how session paths are selected, and how resume is initiated, but the persisted context is the same.
+They differ in how inputs are specified, how session paths are selected, and how resume is initiated, but the persisted context is the same.
 
 ---
 
@@ -126,7 +119,7 @@ They differ in how inputs are marshalled, how session paths are selected, and ho
 **Implementation notes:**
 
 - `h_save()` pickles the whole context to `<context.name>.context`
-- `h_resume(filename='last')` loads the most recent `.context` file
+- `h_resume(filename)` loads a `.context` file, defaulting to the most recent context file available if `filename` is `None` or `last` is used.
 - Per-stage results are proxied to disk (`saved_state/result-stageX.pickle`) to keep the in-memory context smaller
 - Used by driver-managed breakpoint/resume (`executeppr(..., bpaction='resume')`) and developer debugging workflows
 
@@ -139,7 +132,7 @@ They differ in how inputs are marshalled, how session paths are selected, and ho
 1. The MPI client saves the context to disk as a pickle: `context.save(path)`.
 2. Task arguments are also pickled to disk alongside the context.
 3. On the server, `get_executable()` loads the context, modifies `context.logs['casa_commands']` to a server-local temp path, creates the task's `Inputs(context, **task_args)`, then executes the task.
-4. For `Tier0JobRequest` (lower-level distribution), the executor is shallow-copied *excluding* the context reference to stay within the MPI buffer limit (~150 MiB, per PIPE-1337).
+4. For `Tier0JobRequest` (lower-level distribution), the executor is shallow-copied *excluding* the context reference to stay within the MPI buffer limit (~150 MiB, see PIPE-1337).
 
 ---
 
@@ -161,23 +154,26 @@ They differ in how inputs are marshalled, how session paths are selected, and ho
 **Implementation notes** — after `merge_with_context()`, `accept()` triggers `pipelineqa.qa_registry.do_qa(context, result)`:
 
 - QA handlers implement `QAPlugin.handle(context, result)`
-- They typically call `context.observing_run.get_ms(vis)` to look up metadata for scoring (antenna count, channel count, SPW properties, field intents)
-- Some handlers check `context.imaging_mode` to branch on VLASS-specific scoring
-- Scores are appended to `result.qa.pool` — the context provides inputs to QA evaluation, but the scores are stored on the result rather than as direct context mutations
+- The context provides inputs to QA evaluation:
+  - Most handlers call `context.observing_run.get_ms(vis)` to look up metadata for scoring (antenna count, channel count, SPW properties, field intents)
+  - Some handlers check `context.imaging_mode` to branch on VLASS-specific scoring
+  - Others check things in `context.observing_run`, `context.project_structure`, or the callibrary (`context.callibrary`)
+- Scores are appended to `result.qa.pool`, so the scores are stored on the results rather than directly on the context. 
 
-QA handlers are read-only with respect to the context. 
+QA handlers write scores to `result.qa.pool` and do not modify the shared context directly.
 
 ---
 
-### UC-16 — Manage Telescope-Specific Context Extensions
+### UC-16 — Manage Telescope-Specific State
+
+This use case is based on a VLA-specific sub-context (`context.evla`) which is created during `hifv_importdata` and is updated by several subsequent tasks. Functionally, it provides a way to store observation metadata and pass state between tasks under `context.evla` rather than using the top-level context directly or other context objects (e.g. the domain objects). `context.evla` is an untyped, dictionary-of-dictionaries sidecar dynamically attached to the top-level context with no schema, no type annotations, and no declaration in `Context.__init__`.
 
 **Implementation notes** — `context.evla` is a `collections.defaultdict(dict)`, keyed as `context.evla['msinfo'][ms_name].<property>`:
 
 - **Written by:** `hifv_importdata` (creates + initializes), `testBPdcals` (gain intervals, ignorerefant), `fluxscale/solint`, `fluxboot`
-- **Read by:** nearly every VLA calibration task and heuristic
+- **Read by:** Most VLA calibration tasks and heuristics
 - Accessed fields include: `gain_solint1`, `gain_solint2`, `setjy_results`, `ignorerefant`, various `*_field_select_string` / `*_scan_select_string` values, `fluxscale_sources`, `spindex_results`, and many more
 
-This is an untyped, dictionary-of-dictionaries sidecar attached to the top-level context
 ---
 
 ## Key Implementation References
@@ -188,9 +184,9 @@ This is an untyped, dictionary-of-dictionaries sidecar attached to the top-level
 - PPR-driven execution loops:
   - ALMA: `pipeline/infrastructure/executeppr.py` (used by `pipeline/runpipeline.py`)
   - VLA: `pipeline/infrastructure/executevlappr.py` (used by `pipeline/runvlapipeline.py`)
-- XML procedure execution: `pipeline/recipereducer.py`
+- Direct XML procedure execution: `pipeline/recipereducer.py`
 - MPI distribution: `pipeline/infrastructure/mpihelpers.py`
-- QA framework: `pipeline/qa/`
+- QA framework: `pipeline/infrastructure/pipelineqa.py`, `pipeline/qa/`
 - Weblog renderer: `pipeline/infrastructure/renderer/htmlrenderer.py`
 
 ---
