@@ -1,13 +1,11 @@
 # Pipeline Context Use Cases
 
 ## Overview
-The pipeline context is the central state object used for an entire pipeline execution. 
-It carries observation data, calibration state, imaging state, execution history and state, 
-project metadata, and serves as the primary communication channel between pipeline stages.
+The pipeline context is the central state object used for a pipeline execution. It carries observation data, calibration state, imaging state, execution history and state, project metadata, and serves as the primary communication channel between pipeline stages.
 
-This document catalogues the current use cases of the pipeline context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS. 
+This document catalogues the use cases of the current pipeline context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS.
 
-For additional details about the current implementation and reference material. see [Supplementary Analysis](context_current_pipeline_appendix.md).
+For additional details about the current implementation and reference material, see [Supplementary Analysis](context_current_pipeline_appendix.md).
 
 ---
 
@@ -17,9 +15,7 @@ Each use case describes the required capabilities of the context system and the 
 
 The following fields are used in each use case:
 
-- **Actor(s):** The human or system role that directly creates, updates, consumes, or inspects the 
-context state described by the use case. Actors are role categories, not specific task names or 
-current implementations.
+- **Actor(s):** The human or system role that directly creates, updates, consumes, or inspects the context state described by the use case. Actors are role categories, not specific task names or current implementations.
 - **Summary:** What the context must do to satisfy the use case.
 - **Invariant:** A condition that must always be true while the system is operating. Present only where a meaningful invariant exists.
 - **Postcondition:** A condition that must be true after a specific operation completes. Present only where a meaningful postcondition exists.
@@ -111,7 +107,7 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Operations / automated processing (PPR-driven batch), pipeline developer / power user (interactive), recipe executor |
-| **Summary** | The context is created and consumed by multiple front-ends: PPR command lists, XML procedures, or interactive task calls. The state stored by the context must remain consistent and usable regardless of which driver created or resumed it. It must be creatable and resumable from non-interactive and interactive drivers, support driver-injected run metadata, and tolerate partial execution controls (`startstage`, `exitstage`) and breakpoint-driven stop/resume semantics. |
+| **Summary** | The context is created and consumed by multiple front-ends: PPR command lists, XML procedures, or interactive task calls. The state stored by the context must remain consistent and usable regardless of which driver created or resumed it. It must be creatable and resumable from non-interactive and interactive drivers, support driver-injected run metadata, and tolerate partial execution controls and breakpoint-driven stop/resume semantics. |
 | **Invariant** | Processing state is consistent and usable regardless of which orchestration driver created or resumed it, and success/failure signals are produced when appropriate. |
 
 ---
@@ -121,7 +117,7 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, workflow orchestration layer, pipeline developer |
-| **Summary** | The context must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata, etc) and later restore it so that processing can resume from the saved point. The serialization must preserve enough state to resume; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
+| **Summary** | The context must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata, etc.) and later restore it so that processing can resume from the saved point. The serialization must preserve enough state to resume; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
 | **Postconditions** | After restore, the processing state is operationally equivalent to the saved state for supported resume workflows, and processing can continue from the specified point. |
 
 ---
