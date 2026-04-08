@@ -97,12 +97,22 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Any task producing output, downstream tasks |
-| **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the context must provide a mechanism for those outputs to become available to subsequent processing steps before they execute. UC-03, UC-04, UC-05, and UC-14 are specific instances of this pattern. |
+| **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the context must provide a mechanism for those outputs to become available to subsequent processing steps before they execute. UC-03, UC-04, UC-05, and UC-15 are specific instances of this pattern. |
 | **Postconditions** | Downstream tasks can access the propagated processing state they need. |
 
 ---
 
-### UC-09 — Support Multiple Orchestration Drivers
+### UC-09 — Provide a Transient Intra-Stage Workspace
+
+| | |
+|-------|---------|
+| **Actor(s)** | Aggregate tasks, child tasks, task execution framework |
+| **Summary** | Within a stage, the context must be usable as a temporary working space for child-task execution. Child tasks must be able to modify context state destructively while they run, including adding, removing, or replacing tentative calibration and processing state, without requiring explicit cleanup logic. Only outputs that are explicitly accepted into the enclosing task's context should survive stage execution. |
+| **Invariant** | State changes made while executing against a temporary child-task context do not escape that workspace unless they are explicitly accepted and merged. |
+| **Postcondition** | When a child task finishes, the enclosing task retains only the accepted state changes; unaccepted mutations to the temporary workspace are discarded. |
+
+---
+### UC-10 — Support Multiple Orchestration Drivers
 
 | | |
 |-------|---------|
@@ -112,7 +122,7 @@ ___
 
 ---
 
-### UC-10 — Save and Restore a Processing Session
+### UC-11 — Save and Restore a Processing Session
 
 | | |
 |-------|---------|
@@ -122,7 +132,7 @@ ___
 
 ---
 
-### UC-11 — Provide State to Parallel Workers
+### UC-12 — Provide State to Parallel Workers
 
 | | |
 |-------|---------|
@@ -133,7 +143,7 @@ ___
 
 ---
 
-### UC-12 — Aggregate Results from Parallel Workers
+### UC-13 — Aggregate Results from Parallel Workers
 
 | | |
 |-------|---------|
@@ -143,7 +153,7 @@ ___
 
 ---
 
-### UC-13 — Provide Read-Only State for Reporting
+### UC-14 — Provide Read-Only State for Reporting
 
 | | |
 |-------|---------|
@@ -153,7 +163,7 @@ ___
 
 ---
 
-### UC-14 — Support QA Evaluation and Store Quality Assessments
+### UC-15 — Support QA Evaluation and Store Quality Assessments
 
 | | |
 |-------|---------|
@@ -163,7 +173,7 @@ ___
 
 ---
 
-### UC-15 — Support Inspection and Debugging
+### UC-16 — Support Inspection and Debugging
 
 | | |
 |-------|---------|
@@ -173,7 +183,7 @@ ___
 
 ---
 
-### UC-16 — Manage Telescope-Specific State
+### UC-17 — Manage Telescope-Specific State
 
 | | |
 |-------|---------|
@@ -183,7 +193,7 @@ ___
 
 ---
 
-### UC-17 — Provide State for Product Export
+### UC-18 — Provide State for Product Export
 
 | | |
 |-------|---------|

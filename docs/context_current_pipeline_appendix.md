@@ -52,11 +52,11 @@ The MS objects stored by `context.observing_run` carry information about scans, 
 
 | Attribute | Written by | Read by |
 |---|---|---|
-| `clean_list_pending` | `editimlist`, `makeimlist`, `findcont`, `makeimages` | `findcont`, `tclean`, `transformimagedata`, `uvcontsub`, `checkproductsize` |
+| `clean_list_pending` | `editimlist`, `makeimlist`, `findcont`, `makeimages` | `findcont`, `transformimagedata`, `makeimages`, `vlassmasking` |
 | `clean_list_info` | `makeimlist`, `makeimages` | display/renderer code |
-| `imaging_mode` | `editimlist` | `makermsimages`, `makecutoutimages`, `makeimages` |
-| `imaging_parameters` | PPR / `editimlist` | `tclean`, `checkproductsize`, heuristics |
-| `synthesized_beams` | `imageprecheck`, `tclean`, `checkproductsize`, `makeimlist`, `makeimages` | `checkproductsize`, heuristics |
+| `imaging_mode` | `editimlist` | `makermsimages`, `makecutoutimages`, `makeimages`, VLASS export/display code |
+| `imaging_parameters` | `imageprecheck` | `tclean`, `checkproductsize`, `makeimlist`, heuristics |
+| `synthesized_beams` | `imageprecheck`, `tclean`, `checkproductsize`, `makeimlist`, `makeimages` | `imageprecheck`, `editimlist`, `tclean`, `uvcontsub`, `checkproductsize`, heuristics |
 | `size_mitigation_parameters` | `checkproductsize` | downstream stages |
 | `selfcal_targets`, `selfcal_resources` | `selfcal` | `exportdata` |
 
@@ -93,17 +93,31 @@ The MS objects stored by `context.observing_run` carry information about scans, 
 
 ### UC-08 — Propagate Task Outputs to Downstream Tasks
 
-**Implementation notes** — the current pipeline satisfies these needs through two different propagation paths:
+**Implementation notes** — the intended primary mechanism in the current pipeline is immediate propagation through context state updated during result acceptance. Over time, some workflows also came to inspect recorded results directly. Both patterns exist in the codebase, but the second should be understood as an accreted pattern rather than the original design intent.
 
-1. **Immediate state propagation** — `Results.merge_with_context(context)` updates calibration library, image libraries, and more so later tasks can access the current processing state directly.
-2. **Serialized Results** — tasks read `context.results` to find outputs from earlier stages when those outputs are needed from the recorded results rather than from merged shared state. For example:
+This use case is also a concrete example of context creep caused by weakly enforced contracts: the intended contract was that downstream tasks would consume explicitly merged shared state, but later code sometimes reached into `context.results` directly when that contract was not maintained consistently.
+
+1. **Immediate state propagation** — `Results.merge_with_context(context)` updates calibration library, image libraries, and dedicated context attributes such as `clean_list_pending`, `clean_list_info`, `synthesized_beams`, `size_mitigation_parameters`, `selfcal_targets`, and `selfcal_resources` so later tasks can access the current processing state directly without parsing another task's results object.
+2. **Recorded-result inspection** — some tasks read `context.results` to find outputs from earlier stages when those outputs are needed from the recorded results rather than from merged shared state. This pattern introduces coupling to recipe order or to another task's result class structure. For example:
    - VLA tasks compute `stage_number` from `context.results[-1].read().stage_number + 1`
    - `vlassmasking` iterates `context.results[::-1]` to find the latest `MakeImagesResult`
    - Export/AQUA code reads `context.results[0]` and `context.results[-1]` for timestamps
 
 ---
 
-### UC-09 — Support Multiple Orchestration Drivers
+### UC-09 — Provide a Transient Intra-Stage Workspace
+
+**Implementation notes** — the current framework implements this behavior in `pipeline/infrastructure/basetask.py`:
+
+- `StandardTaskTemplate.execute()` replaces `self.inputs` with a pickled copy of the original inputs, including the context, before task logic runs, and restores the original inputs in `finally`
+- Child tasks therefore execute against a duplicated context that may be mutated freely during `prepare()` / `analyse()`
+- `Executor.execute(job, merge=True)` commits a child result by calling `result.accept(self._context)`; with `merge=False`, the child task may still be run and inspected without committing its state
+- This makes it possible for aggregate tasks to try tentative calibration paths or other destructive edits inside a stage and keep only the results they explicitly accept
+- The rollback mechanism is in-memory copy/restore of task inputs and context; it is distinct from explicit session save/resume workflows
+
+---
+
+### UC-10 — Support Multiple Orchestration Drivers
 
 **Implementation notes** — multiple entry points converge on the same task execution path:
 
@@ -114,7 +128,7 @@ They differ in how inputs are specified, how session paths are selected, and how
 
 ---
 
-### UC-10 — Save and Restore a Processing Session
+### UC-11 — Save and Restore a Processing Session
 
 **Implementation notes:**
 
@@ -125,18 +139,18 @@ They differ in how inputs are specified, how session paths are selected, and how
 
 ---
 
-### UC-11 — Provide State to Parallel Workers
+### UC-12 — Provide State to Parallel Workers
 
 **Implementation notes** — `pipeline/infrastructure/mpihelpers.py`, class `Tier0PipelineTask`:
 
 1. The MPI client saves the context to disk as a pickle: `context.save(path)`.
 2. Task arguments are also pickled to disk alongside the context.
 3. On the server, `get_executable()` loads the context, modifies `context.logs['casa_commands']` to a server-local temp path, creates the task's `Inputs(context, **task_args)`, then executes the task.
-4. For `Tier0JobRequest` (lower-level distribution), the executor is shallow-copied *excluding* the context reference to stay within the MPI buffer limit (~150 MiB, see PIPE-1337).
+4. For `Tier0JobRequest` (lower-level distribution), the executor is shallow-copied *excluding* the context reference to stay within the pipeline-enforced MPI buffer limit (100 MiB). Comments in the code note CASA's higher native limit (~150 MiB; see PIPE-1337 / CAS-13656).
 
 ---
 
-### UC-13 — Provide Read-Only State for Reporting
+### UC-14 — Provide Read-Only State for Reporting
 
 **Implementation notes** — `WebLogGenerator.render(context)` in `pipeline/infrastructure/renderer/htmlrenderer.py`:
 
@@ -145,11 +159,11 @@ They differ in how inputs are specified, how session paths are selected, and how
 - Reads `context.observing_run.*` — MS metadata, scheduling blocks, execution blocks, observers, project IDs, start/end times
 - Reads `context.project_summary.telescope` — to determine telescope-specific page layouts (ALMA vs VLA vs NRO)
 - Reads `context.project_structure.*` — OUS IDs, PPR file, recipe name
-- Reads `context.logs['casa_commands']` — CASA command history
+- The larger renderer stack, including the Mako templates under `pipeline/infrastructure/renderer/templates/`, reads `context.logs['casa_commands']` and related log references when generating weblog links
 
 ---
 
-### UC-14 — Support QA Evaluation and Store Quality Assessments
+### UC-15 — Support QA Evaluation and Store Quality Assessments
 
 **Implementation notes** — after `merge_with_context()`, `accept()` triggers `pipelineqa.qa_registry.do_qa(context, result)`:
 
@@ -158,13 +172,13 @@ They differ in how inputs are specified, how session paths are selected, and how
   - Most handlers call `context.observing_run.get_ms(vis)` to look up metadata for scoring (antenna count, channel count, SPW properties, field intents)
   - Some handlers check `context.imaging_mode` to branch on VLASS-specific scoring
   - Others check things in `context.observing_run`, `context.project_structure`, or the callibrary (`context.callibrary`)
-- Scores are appended to `result.qa.pool`, so the scores are stored on the results rather than directly on the context. 
+- Scores are appended to `result.qa.pool`, so the scores are stored on the results rather than directly on the context. This also keeps detailed QA collections scoped to the stage result that produced them; in current code, a `QAScorePool` can hold many `QAScore` objects, and each score may carry fine-grained `applies_to` selections (e.g. vis, field, SPW, antenna, polarization), so the per-result pool can become fairly large for detailed assessments.
 
 QA handlers write scores to `result.qa.pool` and do not modify the shared context directly.
 
 ---
 
-### UC-16 — Manage Telescope-Specific State
+### UC-17 — Manage Telescope-Specific State
 
 This use case is based on a VLA-specific sub-context (`context.evla`) which is created during `hifv_importdata` and is updated by several subsequent tasks. Functionally, it provides a way to store observation metadata and pass state between tasks under `context.evla` rather than using the top-level context directly or other context objects (e.g. the domain objects). `context.evla` is an untyped, dictionary-of-dictionaries sidecar dynamically attached to the top-level context with no schema, no type annotations, and no declaration in `Context.__init__`.
 
