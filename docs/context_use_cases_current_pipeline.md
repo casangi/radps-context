@@ -27,7 +27,7 @@ The following fields are used in each use case:
 | | |
 |-------|---------|
 | **Actor(s)** | Data import task, any downstream task, heuristics, renderers, QA handlers |
-| **Summary** | The context must load observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges), make it queryable by all subsequent processing steps, and allow downstream tasks to update it as processing progresses (e.g., registering new derived datasets, data column and type changes, reference antenna selection). It must also provide a unified identifier scheme when multiple datasets use different native numbering. |
+| **Summary** | The context must load observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges), make it queryable by all subsequent processing steps, and allow downstream tasks to update it as processing progresses (e.g., registering new derived datasets, data column and type changes, reference antenna selection). It must also be able to hold derived or cached metadata products created during import when later stages rely on them for efficiency rather than recomputing them from the raw measurement set, and it must provide a unified identifier scheme when multiple datasets use different native numbering. |
 | **Invariant** | All registered datasets remain queryable and updatable for the lifetime of the session without repeating the import process. |
 
 ---
@@ -183,13 +183,13 @@ ___
 
 ---
 
-### UC-17 — Manage Telescope-Specific State
+### UC-17 — Manage Telescope- and Array-Specific State
 
 | | |
 |-------|---------|
-| **Actor(s)** | Telescope-specific tasks and heuristics |
-| **Summary** | The context must support conditional telescope-specific extensions to the processing state. These extensions must be available to telescope-specific tasks and heuristics. Generic pipeline components must not depend on or require knowledge of telescope-specific extensions. |
-| **Invariant** | Telescope-specific extensions are present only for runs that require them, available to the tasks that need them, and are never assumed by shared pipeline code. |
+| **Actor(s)** | Telescope-specific tasks and heuristics, array-specific tasks and heuristics |
+| **Summary** | The context must support conditional telescope-specific and array-specific extensions to the processing state. These extensions must be available to the tasks and heuristics that need them, including cases where one array mode within a telescope family has materially different state requirements from another. Generic pipeline components must not depend on or require knowledge of those telescope- or array-specific extensions. |
+| **Invariant** | Telescope- and array-specific extensions are present only for runs that require them, available to the tasks that need them, and are never assumed by shared pipeline code. |
 
 ---
 
