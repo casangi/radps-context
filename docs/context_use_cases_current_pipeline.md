@@ -88,7 +88,7 @@ ___
 |-------|---------|
 | **Actor(s)** | Report generators, pipeline operators, workflow orchestration layer |
 | **Summary** | The context must preserve a complete execution record for each completed stage, including timing, traceback information, outcomes, and the arguments used to invoke it. This record must support reporting, post-mortem diagnosis of failures, and resumption after interruption. |
-| **Invariant** | Each completed stage retains its full execution record  identity, outcome, timing, traceback, and invocation arguments for the lifetime of the session. |
+| **Invariant** | Each completed stage retains its full execution record, including identity, outcome, timing, traceback, and invocation arguments, for the lifetime of the session. |
 
 ---
 
@@ -138,7 +138,7 @@ ___
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, parallel worker processes |
 | **Summary** | When work is distributed across parallel workers, each worker needs read-only access to the current processing state (observation metadata, calibration state). The context must provide a mechanism for workers to obtain a consistent snapshot of that state. Workers must not be able to modify the shared processing state directly. The snapshot mechanism must support efficient distribution to workers. |
-| **Invariant:**| Worker processes cannot modify shared processing state directly. |
+| **Invariant**| Worker processes cannot modify shared processing state directly. |
 | **Postconditions** | After distribution, each worker has a consistent, read-only view of the processing state for the duration of its work. |
 
 ---

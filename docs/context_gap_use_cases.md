@@ -1,4 +1,4 @@
-## Missing capabilities (GAPs) and implications for RADPS context design
+# Missing capabilities (GAPs) and implications for RADPS context design
 
 This document records capabilities the current pipeline context design cannot yet support. Not every item below is strictly a "context" feature, but each implies changes to context responsibilities, schema, or interfaces. The gaps are enumerated as GAP-01 through GAP-08. A separate, more exhaustive gap analysis mapping these use cases to RADPS requirements is recommended.
 

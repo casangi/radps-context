@@ -6,7 +6,7 @@ This document contains implementation details and reference material that supple
 
 ## Implementation Notes by Use Case
 
-The following implementation notes describe how each use case is realized in the current pipeline codebase. They were separated from the use-case definitions to keep the requirements document focused on requirements.
+The following implementation notes describe how selected use cases are realized in the current pipeline codebase. They were separated from the use-case definitions to keep the requirements document focused on requirements; use cases not listed here do not currently have appendix-level implementation notes in this document.
 
 ### UC-01 — Load, Update, and Provide Access to Observation Metadata
 
