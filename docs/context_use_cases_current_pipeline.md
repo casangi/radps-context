@@ -1,7 +1,7 @@
 # Pipeline Context Use Cases
 
 ## Overview
-The pipeline context is the central state object used for a pipeline execution. It carries observation data, calibration state, imaging state, execution history and state, project metadata, and serves as the primary communication channel between pipeline stages.
+The pipeline context is the central state object used for a pipeline execution. It carries observation metadata, calibration state, imaging state, execution history and state, project metadata, and serves as the primary communication channel between pipeline stages.
 
 This document catalogues the use cases of the current pipeline context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS.
 
@@ -22,13 +22,13 @@ The following fields are used in each use case:
 
 ---
 
-### UC-01 — Load, Update, and Provide Access to Observation Metadata
+### UC-01 — Populate, Access, and Provide Observation Metadata
 
 | | |
 |-------|---------|
 | **Actor(s)** | Data import task, any downstream task, heuristics, renderers, QA handlers |
-| **Summary** | The context must load observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges), make it queryable by all subsequent processing steps, and allow downstream tasks to update it as processing progresses (e.g., registering new derived datasets, data column and type changes, reference antenna selection). It must also be able to hold derived or cached metadata products created during import when later stages rely on them for efficiency rather than recomputing them from the raw measurement set, and it must provide a unified identifier scheme when multiple datasets use different native numbering. |
-| **Invariant** | All registered datasets remain queryable and updatable for the lifetime of the session without repeating the import process. |
+| **Summary** | The context must populate (read) observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges), make it queryable by all subsequent processing steps, and allow downstream tasks to access that metadata as processing progresses. When processing produces derived or transformed datasets (for example, calibrated, averaged, or subsetted outputs), the context should register those derived datasets and record lineage rather than mutating the original observation metadata. It must also be able to hold derived or cached metadata products created during import so later stages can reuse them efficiently, and it must provide a unified identifier scheme when multiple datasets use different native numbering. |
+| **Invariant** | All populated datasets and derived dataset records remain queryable for the lifetime of the session without repeating the import process. |
 
 ---
 
@@ -47,7 +47,7 @@ The following fields are used in each use case:
 | | |
 |-------|---------|
 | **Actor(s)** | Calibration tasks, export tasks, restore tasks, report generators |
-| **Summary** | The context must allow calibration tasks to register and update solutions (indexed by data selection: field, spectral window, antenna, intent, time interval), and allow downstream tasks to query for all calibrations applicable to a given data selection. It must distinguish between calibrations pending application and those already applied. Registration must support registering multiple calibrations atomically as part of a single operation. |
+| **Summary** | The context must allow calibration tasks to register and update solutions and to record both the coverage where a solution applies and the source(s) from which it was derived. In practice this means recording the target-selection coverage where a solution may be applied (for example: field, spectral window, antenna, polarization, baseline, scan, intent, time interval, etc.) and, where relevant, the originating dataset(s) or data source used to compute the solution. Downstream tasks must be able to query for all calibrations applicable to a given data selection. The context must distinguish between calibrations pending application and those already applied. Registration must support registering multiple calibrations atomically as part of a single operation, and it must also support de-registration/removal of trial or reverted calibrations so alternative solutions can be tested or failed attempts rolled back. |
 | **Invariant** | Calibration state is queryable and correctly scoped to data selections, and can be updated as processing progresses. |
 
 ---
@@ -127,8 +127,8 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, workflow orchestration layer, pipeline developer |
-| **Summary** | The context must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata, etc.) and later restore it so that processing can resume from the saved point. The serialization must preserve enough state to resume; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
-| **Postconditions** | After restore, the processing state is operationally equivalent to the saved state for supported resume workflows, and processing can continue from the specified point. |
+| **Summary** | The context must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata, etc.) and later restore it so that processing can resume from the saved point, provided the data-file state required by the context snapshot is recoverable. The serialization must preserve enough state to resume; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
+| **Postcondition** | After restore, the processing state is operationally equivalent to the saved state for supported resume workflows, and processing can continue from the specified point, assuming the data-file state can be restored to match the snapshot used to create the saved context. |
 
 ---
 
@@ -137,9 +137,9 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, parallel worker processes |
-| **Summary** | When work is distributed across parallel workers, each worker needs read-only access to the current processing state (observation metadata, calibration state). The context must provide a mechanism for workers to obtain a consistent snapshot of that state. Workers must not be able to modify the shared processing state directly. The snapshot mechanism must support efficient distribution to workers. |
-| **Invariant**| Worker processes cannot modify shared processing state directly. |
-| **Postconditions** | After distribution, each worker has a consistent, read-only view of the processing state for the duration of its work. |
+| **Summary** | When work is distributed across parallel workers, each worker needs read-only access to the current processing state (observation metadata, calibration state). The context must provide a mechanism for workers to obtain a consistent snapshot of that state, and the snapshot mechanism must support efficient distribution to workers. In the current implementation, workers do not modify the shared/central processing state prior to committing results; any worker-side updates are applied only via the normal result-accept/merge flow. |
+| **Invariant** | Worker processes do not modify shared processing state directly during their execution; state changes are applied through committed results. |
+| **Postcondition** | After distribution, each worker has a consistent, read-only view of the processing state for the duration of its work. |
 
 ---
 
