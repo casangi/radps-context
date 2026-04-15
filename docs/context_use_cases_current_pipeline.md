@@ -37,7 +37,7 @@ The following fields are used in each use case:
 | | |
 |-------|---------|
 | **Actor(s)** | Initialization, any task, report generators |
-| **Summary** | The context must store project-level metadata (proposal code, PI, telescope, desired sensitivities, processing recipe) and make it available to all components, e.g., for decision-making in heuristics and to label outputs in reports. |
+| **Summary** | The context must store project-level metadata (proposal code, PI, telescope, desired sensitivities, etc.) and make it available to all components, e.g., for decision-making in heuristics and to label outputs in reports. |
 | **Invariant** | Project metadata is available for the lifetime of the processing session. |
 
 ---
