@@ -20,7 +20,7 @@ This document records capabilities the current pipeline context design cannot ye
 | | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, parallel task scheduler |
-| **Summary** | The context must support asynchronous execution at multiple granularities (stage-level and within-stage parallelism) while preventing inconsistent processing state. This emphasizes that tasks may proceed independently without waiting for others to complete when task dependencies allow. This differs from the current parallel-worker pattern, which waits for all work to finish before proceeding. |
+| **Summary** | The context must support asynchronous execution at multiple granularities (stage-level and within-stage parallelism) while preventing inconsistent processing state. Tasks must be able to proceed independently without waiting for others to complete when task dependencies allow. This differs from the current parallel-worker pattern, which waits for all work to finish before proceeding. |
 | **Invariant** | Independent tasks may run asynchronously but must not produce conflicting state. |
 | **Postconditions** | Results from asynchronously executed tasks are fully and consistently incorporated into processing state before any dependent work begins. |
 | **RADPS requirements** | CSS9017, CSS9063 |
@@ -39,11 +39,9 @@ This document records capabilities the current pipeline context design cannot ye
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, auditor, reproducibility tooling |
-| **Summary** | The context must record sufficient provenance — software versions, exact input identities/hashes, task parameters, and per-stage state — to enable precise reproduction and audit of past runs. |
+| **Summary** | The context must record sufficient provenance – software versions, exact input identities/hashes, task parameters, per-stage state, hardware and execution-environment details (CPU architecture, node/cluster specification, kernel and MPI versions, workload-manager/scheduler configuration, and relevant scheduler limits) — to enable precise reproduction and audit of past runs. |
 | **Postconditions** | Any past processing step can be reproduced or audited using the recorded provenance chain. |
 | **RADPS requirements** | ALMA-TR103, ALMA-TR104, ALMA-TR105 |
-
-Addendum: provenance should also capture hardware and execution-environment details (CPU architecture, node/cluster specification, kernel and MPI versions, and workload-manager/scheduler configuration and relevant scheduler limits), since non-deterministic behaviour has been observed even when software versions and inputs are identical across different hardware or scheduler setups.
 
 ### GAP-04 — Partial re-execution / targeted stage re-run
 
@@ -69,11 +67,9 @@ Addendum: provenance should also capture hardware and execution-environment deta
 | | |
 |-------|---------|
 | **Actor(s)** | Non-Python clients (C++, Julia, JavaScript dashboards), external tools |
-| **Summary** | Expose context state through a programming-language-neutral contract and a stable middleware/API layer (e.g., REST/gRPC over a typed schema such as Protocol Buffers, JSON-Schema, or Arrow) so local language bindings do not need to know how the context is physically stored. The contract should provide a small set of standard extensible value types (scalars, lists, maps/dictionaries, records/structs) alongside typed core records so developers can add new items quickly without redefining the storage model for each client. |
+| **Summary** | Non-Python clients and external tools must be able to access context state and artifacts through a stable, language-neutral API. Mission-critical processing needs (metadata management, heuristics, transactional/production workflows) must be covered as a priority; auxiliary functionality such as QA, statistics, and dashboard rendering may be served by separate higher-level APIs.
 | **Postcondition** | Clients in any supported programming language can query context state and artifacts through a stable typed API without coupling themselves to the underlying storage representation. |
 | **RADPS requirements** |  |
-
-Addendum: the reference API implementation should prioritise mission-critical data-processing needs (metadata management, heuristics, transactional/production requirements) so that language-agnostic access covers the most important use cases first. Requirements for auxiliary functionality (QA, statistics, weblog rendering, dashboards) may be looser and might be better served by separate services or higher-level APIs. If the project elects to separate a small, well-defined `CoreContext` (processing-critical) from broader, softer features, the term "context" may be reserved for the core contract and the auxiliary pieces treated as complementary services.
 
 ### GAP-07 — Streaming / incremental processing
 
@@ -89,9 +85,7 @@ Addendum: the reference API implementation should prioritise mission-critical da
 | | |
 |-------|---------|
 | **Actor(s)** | Data import tasks, calibration tasks, imaging tasks, heuristics |
-| **Summary** | The current design provides limited support for heterogeneous multi-MS datasets through virtual SPW translation and per-MS data-column tracking, but many workflows still rely on a single reference-MS or master-MS model and do not expose general cross-MS matching semantics. The context must instead support heterogeneous multi-MS scenarios by providing: (1) cross-MS SPW matching with distinct semantics for exact matching (required by calibration tasks) and partial/overlap matching (required for imaging tasks that can combine overlapping spectral windows); and (2) data-type and column tracking across multiple MSes without assuming a shared layout. Because the current virtual-SPW translation mechanism is tightly coupled to the single-master-MS assumption, a fresh design is preferable to extending it. |
+| **Summary** | Calibration tasks, imaging tasks, and heuristics must be able to match and coordinate data across heterogeneous collections of MSes that may not share native SPW numbering, column layout, or other assumptions. Calibration tasks require exact SPW matching; imaging tasks require partial/overlap matching to combine overlapping spectral windows. Where automated matching is ambiguous or fails, heuristics or users must be able to supply explicit mapping rules.
 | **Invariant** | SPW identity and data-column state are queryable across all registered datasets, regardless of whether those datasets share native numbering or column layout. |
 | **Postconditions** | Calibration and imaging tasks can look up applicable SPWs and data columns across an arbitrary collection of heterogeneous MSes using the appropriate matching semantics for their use. |
 | **RADPS requirements** |  |
-
-Addendum: real-world heterogeneous datasets frequently lack fully structured or consistent metadata linking related SPWs across different MOUS/EBs. The system should therefore support a flexible, high-level metadata management layer (for example, permissive flat labels and augmentations rather than rigid relational mapping tables) and explicit hooks for heuristic or user-supplied mapping rules (frequency/channel overlap heuristics, manual SPW mappings, etc.). When heuristics or user interventions are required, the context should record the override, the rationales or decision parameters used, and any associated model/version identifiers (including ML model versions) so decisions remain auditable and reproducible. Storing overrides in a structured form (for example, annotated decision trees or named mapping artifacts) will make it possible to query which metadata gaps commonly trigger manual fixes and to retrain or improve heuristics accordingly.

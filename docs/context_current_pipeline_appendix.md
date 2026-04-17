@@ -28,9 +28,7 @@ For the single-dish pipeline, this use case also includes per-MS `DataTable` pro
 
 ### UC-02 — Store and Provide Project-Level Metadata
 
-**Addendum**: conceptually separate *project metadata* (properties of the observation program such as PI, targeted sensitivities, beam requirements) from *workflow/recipe metadata* (processing recipes, execution instructions, heuristics parameters). Project metadata describes the scientific intent and constraints, while workflow metadata captures how the data should be processed; the two interact but have different origins and lifecycles. Recording this distinction helps ensure that processing recipes remain reusable across projects and that project-level constraints are treated as inputs to heuristics rather than being conflated with the workflow definition.
-
-**Implementation notes** — project metadata is set during initialization or import, is not modified after import, and is read many times:
+**Implementation notes** — project metadata (properties of the observation program such as PI, targeted sensitivities, beam requirements) is set during initialization or import, is not modified after import, and is read many times:
 
 - `context.project_summary = project.ProjectSummary(...)` — set by `executeppr()` / `executevlappr()`
 - `context.project_structure = project.ProjectStructure(...)` — set by PPR executors
@@ -47,13 +45,14 @@ For the single-dish pipeline, this use case also includes per-MS `DataTable` pro
 - **Write:** `context.callibrary.add(calto, calfrom)` — register a calibration application (cal table + target selection); `context.callibrary.unregister_calibrations(matcher)` — remove by predicate
 - **Read:** `context.callibrary.active.get_caltable(caltypes=...)` — list active cal tables; `context.callibrary.get_calstate(calto)` — get full application state for a target selection
 - Backed by `CalApplication` → `CalTo` / `CalFrom` objects with interval trees for efficient matching.
- - The callibrary also supports de-registration of trial or reverted calibrations via predicate-based removal; implementations should ensure such removals are atomic and leave an audit entry so provenance is preserved when rollbacks or experiments occur.
+- The callibrary also supports de-registration of trial or reverted calibrations via predicate-based removal.
+- The current implementation bundles project metadata (scientific intent and constraints: PI, targeted sensitivities, beam requirements) and workflow/recipe metadata (describe how the data should be processed: recipes, execution instructions, heuristic parameters) in the ProjectStructure class. These have different origins and lifecycles.
 
 ---
 
 ### UC-04 — Manage Imaging State
 
-Note: imaging workflows commonly separate a lightweight planning phase (for example, `makeimlist`, `editimlist`) that assembles imaging instructions, target lists, and imaging-mode heuristics from a computationally intensive execution phase (for example, `makeimages`) that performs the heavy imaging work. These phases may require different resource allocation and scheduling policies; acknowledging this planning/execution separation helps explain the series of tightly coupled imaging stages and the significant inter-stage interactions observed in practice.
+Imaging workflows consist of two separate phases: a lightweight planning phase (for example, `makeimlist`, `editimlist`) that assembles imaging instructions, target lists, and imaging-mode heuristics and a computationally intensive execution phase (for example, `makeimages`) that performs the heavy imaging work.
 
 **Implementation notes** — imaging state is stored as ad-hoc attributes on the context object with no formal schema. Defensive `hasattr()` checks appear throughout the code to guard against attributes that may not yet exist:
 
@@ -145,7 +144,7 @@ They differ in how inputs are specified, how session paths are selected, and how
 - Per-stage results are proxied to disk (`saved_state/result-stageX.pickle`) to keep the in-memory context smaller
 - Used by driver-managed breakpoint/resume (`executeppr(..., bpaction='resume')`) and developer debugging workflows
 
-Note: a robust "true resume" often requires the ability to recover or reproduce the on-disk data-file state that existed when the context was saved (for example via filesystem snapshots, immutable/versioned data copies, or non-destructive editing). Without an explicit mechanism to capture or restore data-file state, resume guarantees are conditional — the restored context may only be operationally equivalent if the underlying data files are unchanged or otherwise recoverable to the snapshot point. Implementing filesystem-level snapshotting or versioning is an orthogonal concern to the context model and may be required for strong resume guarantees.
+Note: The current implementation does not handle restoring data state to a past processing state and as such does not have a built-in, robust "true resume". If the data directory needs to be restored to match a saved context snapshot, this must be done manually (e.g. via having created a snapshot of the data at an earlier stage, and then restoring this state) before resuming.
 
 ---
 
@@ -158,7 +157,7 @@ Note: a robust "true resume" often requires the ability to recover or reproduce 
 3. On the server, `get_executable()` loads the context, modifies `context.logs['casa_commands']` to a server-local temp path, creates the task's `Inputs(context, **task_args)`, then executes the task.
 4. For `Tier0JobRequest` (lower-level distribution), the executor is shallow-copied *excluding* the context reference to stay within the pipeline-enforced MPI buffer limit (100 MiB). Comments in the code note CASA's higher native limit (~150 MiB; see PIPE-1337 / CAS-13656).
 
-Note: preventing worker-side direct modifications is the behaviour and safety model used in the existing codebase. Allowing workers to write directly to shared processing state is a viable alternative design but requires explicit concurrency control, transactional commits, and conflict-resolution policies (for example optimistic/pessimistic locking, versioned updates, or a transaction log). Treating worker-side writes as a supported pattern is therefore a design decision with operational and testing implications and is more appropriately evaluated in the GAP analysis and architecture phases rather than assumed by the current context contract.
+The current implementation uses a read-only worker model: workers do not modify shared processing state directly, and results are committed through a result-accept/merge flow.
 
 ---
 

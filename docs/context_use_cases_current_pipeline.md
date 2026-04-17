@@ -47,7 +47,7 @@ The following fields are used in each use case:
 | | |
 |-------|---------|
 | **Actor(s)** | Calibration tasks, export tasks, restore tasks, report generators |
-| **Summary** | The context must allow calibration tasks to register and update solutions and to record both the coverage where a solution applies and the source(s) from which it was derived. In practice this means recording the target-selection coverage where a solution may be applied (for example: field, spectral window, antenna, polarization, baseline, scan, intent, time interval, etc.) and, where relevant, the originating dataset(s) or data source used to compute the solution. Downstream tasks must be able to query for all calibrations applicable to a given data selection. The context must distinguish between calibrations pending application and those already applied. Registration must support registering multiple calibrations atomically as part of a single operation, and it must also support de-registration/removal of trial or reverted calibrations so alternative solutions can be tested or failed attempts rolled back. |
+| **Summary** | The context must allow calibration tasks to register and update solutions and to record both the coverage where a solution applies and the source(s) from which it was derived. Downstream tasks must be able to query for all calibrations applicable to a given data selection. The context must distinguish between calibrations pending application and those already applied. Registration must support registering multiple calibrations atomically as part of a single operation, and it must also support de-registration/removal of trial or reverted calibrations so alternative solutions can be tested or failed attempts rolled back. |
 | **Invariant** | Calibration state is queryable and correctly scoped to data selections, and can be updated as processing progresses. |
 
 ---
@@ -117,7 +117,7 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Operations / automated processing (PPR-driven batch), pipeline developer / power user (interactive), recipe executor |
-| **Summary** | The context is created and consumed by multiple front-ends: PPR command lists, XML procedures, or interactive task calls. The state stored by the context must remain consistent and usable regardless of which driver created or resumed it. It must be creatable and resumable from non-interactive and interactive drivers, support driver-injected run metadata, and tolerate partial execution controls and breakpoint-driven stop/resume semantics. |
+| **Summary** | The state stored by the context must remain consistent and usable regardless of which orchestration driver created or resumed it. It must be creatable and resumable from non-interactive and interactive drivers (ex: PPR command lists, XML procedures, interactive task calls), support driver-injected run metadata, and tolerate partial execution controls and breakpoint-driven stop/resume semantics. |
 | **Invariant** | Processing state is consistent and usable regardless of which orchestration driver created or resumed it, and success/failure signals are produced when appropriate. |
 
 ---
@@ -127,8 +127,8 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, workflow orchestration layer, pipeline developer |
-| **Summary** | The context must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata, etc.) and later restore it so that processing can resume from the saved point, provided the data-file state required by the context snapshot is recoverable. The serialization must preserve enough state to resume; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
-| **Postcondition** | After restore, the processing state is operationally equivalent to the saved state for supported resume workflows, and processing can continue from the specified point, assuming the data-file state can be restored to match the snapshot used to create the saved context. |
+| **Summary** | The context must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata, etc.) and later restore it so that processing can resume from the saved point, provided the data file state is consistent with the context snapshot. The serialization must preserve enough state to resume; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
+| **Postcondition** | After restore, the processing state is operationally equivalent to the saved state for supported resume workflows, and processing can continue from the specified point, assuming the data files are in a state consistent with the snapshot used to create the saved context. |
 
 ---
 
@@ -137,9 +137,8 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, parallel worker processes |
-| **Summary** | When work is distributed across parallel workers, each worker needs read-only access to the current processing state (observation metadata, calibration state). The context must provide a mechanism for workers to obtain a consistent snapshot of that state, and the snapshot mechanism must support efficient distribution to workers. In the current implementation, workers do not modify the shared/central processing state prior to committing results; any worker-side updates are applied only via the normal result-accept/merge flow. |
-| **Invariant** | Worker processes do not modify shared processing state directly during their execution; state changes are applied through committed results. |
-| **Postcondition** | After distribution, each worker has a consistent, read-only view of the processing state for the duration of its work. |
+| **Summary** | When work is distributed across parallel workers, each worker needs access to the current processing state (observation metadata, calibration state). The context must provide a mechanism for workers to obtain a consistent snapshot of that state, and the snapshot mechanism must support efficient distribution to workers. |
+| **Postcondition** | After distribution, each worker has a consistent view of the processing state for the duration of its work. |
 
 ---
 
