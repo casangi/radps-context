@@ -80,12 +80,13 @@ This document records capabilities the current pipeline context design cannot ye
 | **Postconditions** | New data may be incorporated into an active session and processed incrementally without restarting the pipeline from scratch. |
 | **RADPS requirements** |  |
 
-### GAP-08 — Cross-MS matching and heterogeneous dataset coordination
+### GAP-08 — Heterogeneous dataset coordination and flexible matching semantics
 
 | | |
 |-------|---------|
-| **Actor(s)** | Data import tasks, calibration tasks, imaging tasks, heuristics |
-| **Summary** | Calibration tasks, imaging tasks, and heuristics must be able to match and coordinate data across heterogeneous collections of MSes that may not share native SPW numbering, column layout, or other assumptions. Calibration tasks require exact SPW matching; imaging tasks require partial/overlap matching to combine overlapping spectral windows. Where automated matching is ambiguous or fails, heuristics or users must be able to supply explicit mapping rules.
-| **Invariant** | SPW identity and data-column state are queryable across all registered datasets, regardless of whether those datasets share native numbering or column layout. |
-| **Postconditions** | Calibration and imaging tasks can look up applicable SPWs and data columns across an arbitrary collection of heterogeneous MSes using the appropriate matching semantics for their use. |
+| **Actor(s)** | Data import tasks, calibration tasks, imaging tasks, heuristics, pipeline operators |
+| **Summary** | Calibration tasks, imaging tasks, and heuristics must be able to match and coordinate data across heterogeneous collections of MSes that may not share native SPW numbering, column layout, or other assumptions. Downstream tasks must be able to select the matching semantics appropriate to their use: calibration tasks require exact SPW matching; imaging tasks require partial/overlap matching (including by frequency or channel range) to combine related spectral windows. Matching must extend beyond SPWs to cover fields, sources, and data column layouts. Where automated matching is ambiguous or fails, heuristics or users must be able to supply explicit mapping rules or override the default matching behavior, with overrides recorded alongside their rationale.
+| **Invariant** | SPW, field, source, and data-column identity are queryable across all registered datasets, regardless of whether those datasets share native numbering or column layout. |
+| **Postconditions** | Calibration and imaging tasks can look up applicable SPWs, fields, sources, and data columns across an arbitrary collection of heterogeneous MSes using the appropriate matching semantics for their use, and any user or heuristic overrides are recorded alongside their rationale. |
 | **RADPS requirements** |  |
+| **Notes** | UC-02 covers the baseline cross-MS lookup capability currently supported by the context: a unified SPW identifier scheme with a single name-based matching strategy. GAP-08 extends this to multiple selectable matching semantics, additional metadata dimensions (fields, sources, column layouts), and user/heuristic override hooks — none of which are currently supported. |

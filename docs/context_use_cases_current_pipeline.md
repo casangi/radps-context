@@ -36,8 +36,8 @@ The following fields are used in each use case:
 | | |
 |-------|---------|
 | **Actor(s)** | Calibration tasks, imaging tasks, heuristics
-| **Summary** | When multiple MSes are registered in the context, downstream tasks must be able to look up and match metadata elements (spectral windows, fields, sources) across them even when the MSes use different native numbering. The context must provide a unified identifier scheme that allows these elements to be referenced consistently across datasets. . Matching must support different semantics depending on the consumer: exact matching for tasks that require identical metadata (e.g. some calibration tasks), and partial or overlap matching for tasks that can combine related but non-identical metadata (e.g. imaging tasks that combine overlapping spectral windows). Data type and column tracking must also be queryable across MSes without assuming a shared layout.
-| **Postcondition** | Downstream tasks can resolve applicable metadata across an arbitrary collection of registered MSes using the matching semantics appropriate to their use.
+| **Summary** | When multiple MSes are registered in the context, downstream tasks must be able to look up and match metadata elements across them even when the MSes use different native numbering. The context must provide a unified identifier scheme (currently for spectral windows) that allows these elements to be referenced consistently across datasets, and must support data-type-aware lookup of MSes and their associated data columns.
+| **Postcondition** | Downstream tasks can resolve applicable metadata across registered MSes using a unified identifier scheme, and can look up MSes and data columns by data type.
 
 ---
 
