@@ -26,7 +26,13 @@ For the single-dish pipeline, this use case also includes per-MS `DataTable` pro
 
 ---
 
-### UC-02 — Store and Provide Project-Level Metadata
+### UC-02 — Cross-MS Metadata Matching and Lookup
+
+(No implementation notes currently documented for this use case.)
+
+---
+
+### UC-03 — Store and Provide Project-Level Metadata
 
 **Implementation notes** — project metadata (properties of the observation program such as PI, targeted sensitivities, beam requirements) is set during initialization or import, is not modified after import, and is read many times:
 
@@ -38,7 +44,7 @@ For the single-dish pipeline, this use case also includes per-MS `DataTable` pro
 
 ---
 
-### UC-03 — Register, Query, and Update Calibration State
+### UC-04 — Register, Query, and Update Calibration State
 
 **Implementation notes** — `context.callibrary` is the primary cross-stage communication channel for calibration workflows:
 
@@ -50,7 +56,7 @@ For the single-dish pipeline, this use case also includes per-MS `DataTable` pro
 
 ---
 
-### UC-04 — Manage Imaging State
+### UC-05 — Manage Imaging State
 
 Imaging workflows consist of two separate phases: a lightweight planning phase (for example, `makeimlist`, `editimlist`) that assembles imaging instructions, target lists, and imaging-mode heuristics and a computationally intensive execution phase (for example, `makeimages`) that performs the heavy imaging work.
 
@@ -69,7 +75,7 @@ Imaging workflows consist of two separate phases: a lightweight planning phase (
 
 ---
 
-### UC-05 — Register and Query Produced Image Products
+### UC-06 — Register and Query Produced Image Products
 
 **Implementation notes** — image libraries provide typed registries:
 
@@ -80,7 +86,7 @@ Imaging workflows consist of two separate phases: a lightweight planning phase (
 
 ---
 
-### UC-06 — Track Current Execution Progress
+### UC-07 — Track Current Execution Progress
 
 **Implementation notes:**
 
@@ -88,7 +94,7 @@ Imaging workflows consist of two separate phases: a lightweight planning phase (
 
 ---
 
-### UC-07 — Preserve Per-Stage Execution Record
+### UC-08 — Preserve Per-Stage Execution Record
 
 **Implementation notes:**
 
@@ -98,7 +104,7 @@ Imaging workflows consist of two separate phases: a lightweight planning phase (
 
 ---
 
-### UC-08 — Propagate Task Outputs to Downstream Tasks
+### UC-09 — Propagate Task Outputs to Downstream Tasks
 
 **Implementation notes** — the intended primary mechanism in the current pipeline is immediate propagation through context state updated during result acceptance. Over time, some workflows also came to inspect recorded results directly. Both patterns exist in the codebase, but the second should be understood as an accreted pattern rather than the original design intent.
 
@@ -112,7 +118,7 @@ This use case is also a concrete example of context creep caused by weakly enfor
 
 ---
 
-### UC-09 — Provide a Transient Intra-Stage Workspace
+### UC-10 — Provide a Transient Intra-Stage Workspace
 
 **Implementation notes** — the current framework implements this behavior in `pipeline/infrastructure/basetask.py`:
 
@@ -124,7 +130,7 @@ This use case is also a concrete example of context creep caused by weakly enfor
 
 ---
 
-### UC-10 — Support Multiple Orchestration Drivers
+### UC-11 — Support Multiple Orchestration Drivers
 
 **Implementation notes** — multiple entry points converge on the same task execution path:
 
@@ -135,7 +141,7 @@ They differ in how inputs are specified, how session paths are selected, and how
 
 ---
 
-### UC-11 — Save and Restore a Processing Session
+### UC-12 — Save and Restore a Processing Session
 
 **Implementation notes:**
 
@@ -148,7 +154,7 @@ Note: The current implementation does not handle restoring data state to a past 
 
 ---
 
-### UC-12 — Provide State to Parallel Workers
+### UC-13 — Provide State to Parallel Workers
 
 **Implementation notes** — `pipeline/infrastructure/mpihelpers.py`, class `Tier0PipelineTask`:
 
@@ -161,7 +167,7 @@ The current implementation uses a read-only worker model: workers do not modify 
 
 ---
 
-### UC-14 — Provide Read-Only State for Reporting
+### UC-15 — Provide Read-Only State for Reporting
 
 **Implementation notes** — `WebLogGenerator.render(context)` in `pipeline/infrastructure/renderer/htmlrenderer.py`:
 
@@ -174,7 +180,7 @@ The current implementation uses a read-only worker model: workers do not modify 
 
 ---
 
-### UC-15 — Support QA Evaluation and Store Quality Assessments
+### UC-16 — Support QA Evaluation and Store Quality Assessments
 
 **Implementation notes** — after `merge_with_context()`, `accept()` triggers `pipelineqa.qa_registry.do_qa(context, result)`:
 
@@ -189,7 +195,7 @@ QA handlers write scores to `result.qa.pool` and do not modify the shared contex
 
 ---
 
-### UC-17 — Manage Telescope- and Array-Specific State
+### UC-18 — Manage Telescope- and Array-Specific State
 
 **Implementation notes** — the current codebase shows at least two different forms of telescope-/array-specific state.
 

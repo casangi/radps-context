@@ -27,12 +27,21 @@ The following fields are used in each use case:
 | | |
 |-------|---------|
 | **Actor(s)** | Data import task, any downstream task, heuristics, renderers, QA handlers |
-| **Summary** | The context must populate (read) observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges), make it queryable by all subsequent processing steps, and allow downstream tasks to access that metadata as processing progresses. When processing produces derived or transformed datasets (for example, calibrated, averaged, or subsetted outputs), the context should register those derived datasets and record lineage rather than mutating the original observation metadata. It must also be able to hold derived or cached metadata products created during import so later stages can reuse them efficiently, and it must provide a unified identifier scheme when multiple datasets use different native numbering. |
+| **Summary** | The context must populate (read) observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges), make it queryable by all subsequent processing steps, and allow downstream tasks to access that metadata as processing progresses. When processing produces derived or transformed datasets (for example, calibrated, averaged, or subsetted outputs), the context should register those derived datasets and record lineage rather than mutating the original observation metadata. It must also be able to hold derived or cached metadata products created during import so later stages can reuse them efficiently. |
 | **Invariant** | All populated datasets and derived dataset records remain queryable for the lifetime of the session without repeating the import process. |
 
 ---
 
-### UC-02 — Store and Provide Project-Level Metadata
+### UC-02 — Cross-MS Metadata Matching and Lookup
+| | |
+|-------|---------|
+| **Actor(s)** | Calibration tasks, imaging tasks, heuristics
+| **Summary** | When multiple MSes are registered in the context, downstream tasks must be able to look up and match metadata elements (spectral windows, fields, sources) across them even when the MSes use different native numbering. The context must provide a unified identifier scheme that allows these elements to be referenced consistently across datasets. . Matching must support different semantics depending on the consumer: exact matching for tasks that require identical metadata (e.g. some calibration tasks), and partial or overlap matching for tasks that can combine related but non-identical metadata (e.g. imaging tasks that combine overlapping spectral windows). Data type and column tracking must also be queryable across MSes without assuming a shared layout.
+| **Postcondition** | Downstream tasks can resolve applicable metadata across an arbitrary collection of registered MSes using the matching semantics appropriate to their use.
+
+---
+
+### UC-03 — Store and Provide Project-Level Metadata
 
 | | |
 |-------|---------|
@@ -42,7 +51,7 @@ The following fields are used in each use case:
 
 ---
 
-### UC-03 — Register, Query, and Update Calibration State
+### UC-04 — Register, Query, and Update Calibration State
 
 | | |
 |-------|---------|
@@ -52,7 +61,7 @@ The following fields are used in each use case:
 
 ---
 
-### UC-04 — Manage Imaging State
+### UC-05 — Manage Imaging State
 
 | | |
 |-------|---------|
@@ -62,7 +71,7 @@ The following fields are used in each use case:
 
 ---
 
-### UC-05 — Register and Query Produced Image Products
+### UC-06 — Register and Query Produced Image Products
 
 | | |
 |-------|---------|
@@ -72,7 +81,7 @@ The following fields are used in each use case:
 
 ---
 
-### UC-06 — Track Current Execution Progress
+### UC-07 — Track Current Execution Progress
 
 | | |
 |-------|---------|
@@ -82,7 +91,7 @@ The following fields are used in each use case:
 
 ___
 
-### UC-07 — Preserve Per-Stage Execution Record
+### UC-08 — Preserve Per-Stage Execution Record
 
 | | |
 |-------|---------|
@@ -92,17 +101,17 @@ ___
 
 ---
 
-### UC-08 — Propagate Task Outputs to Downstream Tasks
+### UC-09 — Propagate Task Outputs to Downstream Tasks
 
 | | |
 |-------|---------|
 | **Actor(s)** | Any task producing output, downstream tasks |
-| **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the context must provide a mechanism for those outputs to become available to subsequent processing steps before they execute. UC-03, UC-04, UC-05, and UC-15 are specific instances of this pattern. |
+| **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the context must provide a mechanism for those outputs to become available to subsequent processing steps before they execute. UC-04, UC-05, UC-06, and UC-16 are specific instances of this pattern. |
 | **Postconditions** | Downstream tasks can access the propagated processing state they need. |
 
 ---
 
-### UC-09 — Provide a Transient Intra-Stage Workspace
+### UC-10 — Provide a Transient Intra-Stage Workspace
 
 | | |
 |-------|---------|
@@ -112,7 +121,7 @@ ___
 | **Postcondition** | When a child task finishes, the enclosing task retains only the accepted state changes; unaccepted mutations to the temporary workspace are discarded. |
 
 ---
-### UC-10 — Support Multiple Orchestration Drivers
+### UC-11 — Support Multiple Orchestration Drivers
 
 | | |
 |-------|---------|
@@ -122,7 +131,7 @@ ___
 
 ---
 
-### UC-11 — Save and Restore a Processing Session
+### UC-12 — Save and Restore a Processing Session
 
 | | |
 |-------|---------|
@@ -132,7 +141,7 @@ ___
 
 ---
 
-### UC-12 — Provide State to Parallel Workers
+### UC-13 — Provide State to Parallel Workers
 
 | | |
 |-------|---------|
@@ -142,7 +151,7 @@ ___
 
 ---
 
-### UC-13 — Aggregate Results from Parallel Workers
+### UC-14 — Aggregate Results from Parallel Workers
 
 | | |
 |-------|---------|
@@ -152,7 +161,7 @@ ___
 
 ---
 
-### UC-14 — Provide Read-Only State for Reporting
+### UC-15 — Provide Read-Only State for Reporting
 
 | | |
 |-------|---------|
@@ -162,7 +171,7 @@ ___
 
 ---
 
-### UC-15 — Support QA Evaluation and Store Quality Assessments
+### UC-16 — Support QA Evaluation and Store Quality Assessments
 
 | | |
 |-------|---------|
@@ -172,7 +181,7 @@ ___
 
 ---
 
-### UC-16 — Support Inspection and Debugging
+### UC-17 — Support Inspection and Debugging
 
 | | |
 |-------|---------|
@@ -182,7 +191,7 @@ ___
 
 ---
 
-### UC-17 — Manage Telescope- and Array-Specific State
+### UC-18 — Manage Telescope- and Array-Specific State
 
 | | |
 |-------|---------|
@@ -192,7 +201,7 @@ ___
 
 ---
 
-### UC-18 — Provide State for Product Export
+### UC-19 — Provide State for Product Export
 
 | | |
 |-------|---------|
