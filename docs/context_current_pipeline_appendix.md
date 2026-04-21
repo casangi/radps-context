@@ -168,19 +168,7 @@ The current implementation uses a read-only worker model: workers do not modify 
 
 ---
 
-### UC-12 — Aggregate Results from Parallel Workers
-
-**Implementation notes** — After parallel workers complete, the orchestration layer collects their results and incorporates them into the shared processing state:
-
-- Workers write typed result artifacts (logs, metrics, partial products) to worker-local storage or an artifact staging area.
-- The coordinator performs transactional aggregation: it validates worker results, detects conflicting writes, and commits aggregated outcomes into `context.results` (or the run ledger) as a single atomic update.
-- In the current pipeline this is implemented by unpickling per-worker `ResultsProxy` objects and invoking `Results.merge_with_context(context)` on the coordinator; a future design should replace this with transactional write-back to an ACID-backed ledger and artifact registry.
-- Aggregation must preserve ordering and idempotency (re-play of an aggregation step should not duplicate artifacts).
-- The coordinator is responsible for cleaning up transient worker-local artifacts and registering produced artifacts in the image/artifact libraries for downstream discovery.
-
----
-
-### UC-13 — Provide Read-Only Context for Reporting Consumers
+### UC-15 — Provide Read-Only State for Reporting
 
 **Implementation notes** — `WebLogGenerator.render(context)` in `pipeline/infrastructure/renderer/htmlrenderer.py`:
 
@@ -208,21 +196,7 @@ QA handlers write scores to `result.qa.pool` and do not modify the shared contex
 
 ---
 
-### UC-15 — Support Interactive Inspection and Debugging
-
-**Implementation notes** — The pipeline exposes multiple inspection and debugging affordances to operators and developers:
-
-- `h_save()` / `h_resume()` provide session-level snapshots to enable developer post-mortem and operator-driven resume.
-- The context records per-stage tracebacks, timings, and structured logs to support deterministic debugging and automated test harnesses.
-- Renderers (weblogs) and reporting tools read `context.results` and other metadata to produce reproducible artifacts useful for debugging.
-- For long-running or distributed runs, retain per-node logs and structured events so operators can inspect node-local failures without unpickling worker memory.
-- The context should provide stable, queryable views (APIs or exports) rather than relying on ad-hoc unpickling for interactive inspection.
-
----
-
-### UC-16 — Manage Telescope-Specific Context Extensions
-
-**Implementation notes** — `context.evla` is a `collections.defaultdict(dict)`, keyed as `context.evla['msinfo'][ms_name].<property>`:
+### UC-18 — Manage Telescope- and Array-Specific State
 
 **Implementation notes** — the current codebase shows at least two different forms of telescope-/array-specific state.
 
@@ -230,20 +204,9 @@ One is a VLA-specific sub-context (`context.evla`) which is created during `hifv
 
 `context.evla` is a `collections.defaultdict(dict)`, keyed as `context.evla['msinfo'][ms_name].<property>`:
 
-### UC-17 — Provide Context for Product Export
-
-**Implementation notes** — Export tasks and archive packaging read from context to assemble deliverable bundles:
-
-- Export looks up produced artifacts via typed registries (`sciimlist`, `calimlist`, `rmsimlist`, `subimlist`) and the artifact registry to collect locations and lineage.
-- The export task assembles a manifest (paths/URIs, checksums, metadata) and produces an export package (tarball, object-store bundle) that is itself registered as an artifact for provenance.
-- Export must be resilient to relocated paths: artifact registry entries should provide multiple location hints (local path, shared FS, object-store URI) and the exporter should prefer canonical object-store URIs when available.
-- Reporting and AQUA generators reuse the same artifact/manifest records so export and reporting are derived from the same run ledger.
-
----
-
-### UC-18 — Emit Lifecycle Notifications
-
-**Implementation notes** — `pipeline.infrastructure.eventbus.send_message(event)`:
+- **Written by:** `hifv_importdata` (creates + initializes), `testBPdcals` (gain intervals, ignorerefant), `fluxscale/solint`, `fluxboot`
+- **Read by:** Most VLA calibration tasks and heuristics
+- Accessed fields include: `gain_solint1`, `gain_solint2`, `setjy_results`, `ignorerefant`, various `*_field_select_string` / `*_scan_select_string` values, `fluxscale_sources`, `spindex_results`, and many more
 
 Another is ALMA TP / single-dish state, which is array-specific rather than telescope-wide and is carried mainly through SD-specific structures under `context.observing_run`, such as `ms_datatable_name`, `ms_reduction_group`, and `org_directions`, plus the per-MS `DataTable` products referenced from that state. This is a useful reminder that array-specific extensions do not always appear as a single sidecar object like `context.evla`; they may instead live in domain-model extensions and array-specific cached metadata products.
 
