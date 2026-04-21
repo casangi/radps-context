@@ -69,7 +69,7 @@ This document records capabilities the current pipeline context design cannot ye
 | **Actor(s)** | Non-Python clients (C++, Julia, JavaScript dashboards), external tools |
 | **Summary** | Non-Python clients and external tools must be able to access context state and artifacts through a stable, language-neutral API. Mission-critical processing needs (metadata management, heuristics, transactional/production workflows) must be covered as a priority; auxiliary functionality such as QA, statistics, and dashboard rendering may be served by separate higher-level APIs.
 | **Postcondition** | Clients in any supported programming language can query context state and artifacts through a stable typed API without coupling themselves to the underlying storage representation. |
-| **RADPS requirements** |  |
+| **RADPS requirements** | ALMA-TR28, ALMA-TR44, ALMA-TR47, ALMA-TR11, CSS9035 |
 
 ### GAP-07 — Streaming / incremental processing
 
@@ -78,7 +78,7 @@ This document records capabilities the current pipeline context design cannot ye
 | **Actor(s)** | Data ingest systems, workflow engine, incremental processing tasks |
 | **Summary** | Support incremental dataset registration (adding new scans or execution blocks to a live session), incremental detection and processing of new data, and versioned results so re-runs produce new versions rather than overwriting. |
 | **Postconditions** | New data may be incorporated into an active session and processed incrementally without restarting the pipeline from scratch. |
-| **RADPS requirements** |  |
+| **RADPS requirements** | CSS8129, CSS9017, CSS9130, CSS9131 |
 
 ### GAP-08 — Heterogeneous dataset coordination and flexible matching semantics
 
@@ -88,5 +88,5 @@ This document records capabilities the current pipeline context design cannot ye
 | **Summary** | Calibration tasks, imaging tasks, and heuristics must be able to match and coordinate data across heterogeneous collections of MSes that may not share native SPW numbering, column layout, or other assumptions. Downstream tasks must be able to select the matching semantics appropriate to their use: calibration tasks require exact SPW matching; imaging tasks require partial/overlap matching (including by frequency or channel range) to combine related spectral windows. Matching must extend beyond SPWs to cover fields, sources, and data column layouts. Where automated matching is ambiguous or fails, heuristics or users must be able to supply explicit mapping rules or override the default matching behavior, with overrides recorded alongside their rationale.
 | **Invariant** | SPW, field, source, and data-column identity are queryable across all registered datasets, regardless of whether those datasets share native numbering or column layout. |
 | **Postconditions** | Calibration and imaging tasks can look up applicable SPWs, fields, sources, and data columns across an arbitrary collection of heterogeneous MSes using the appropriate matching semantics for their use, and any user or heuristic overrides are recorded alongside their rationale. |
-| **RADPS requirements** |  |
+| **RADPS requirements** | ALMA-TR07 |
 | **Notes** | UC-02 covers the baseline cross-MS lookup capability currently supported by the context: a unified SPW identifier scheme with a single name-based matching strategy. GAP-08 extends this to multiple selectable matching semantics, additional metadata dimensions (fields, sources, column layouts), and user/heuristic override hooks — none of which are currently supported. |

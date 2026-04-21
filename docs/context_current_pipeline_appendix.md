@@ -14,9 +14,6 @@ The following implementation notes describe how selected use cases are realized 
 
 - `context.observing_run.get_ms(name=vis)` — resolve an MS by filename
 - `context.observing_run.measurement_sets` — all registered MS objects
-- `context.observing_run.get_measurement_sets_of_type(dtypes)` — filter by data type (RAW, REGCAL_CONTLINE_ALL, BASELINED, etc.)
-- `context.observing_run.virtual2real_spw_id(vspw, ms)` / `real2virtual_spw_id(...)` — translate between abstract pipeline SPW IDs and CASA-native IDs
-- `context.observing_run.virtual_science_spw_ids` — virtual SPW catalog
 - `context.observing_run.ms_reduction_group` — per-group reduction metadata (single-dish)
 - Provenance attributes: `start_datetime`, `end_datetime`, `project_ids`, `schedblock_ids`, `execblock_ids`, `observers`
 
@@ -28,7 +25,11 @@ For the single-dish pipeline, this use case also includes per-MS `DataTable` pro
 
 ### UC-02 — Cross-MS Metadata Matching and Lookup
 
-(No implementation notes currently documented for this use case.)
+**Implementation notes** - `context.observing_run` handles the virtual spw mapping, as well as filtering MSes by type:
+
+- `context.observing_run.get_measurement_sets_of_type(dtypes)` — filter by data type (RAW, REGCAL_CONTLINE_ALL, BASELINED, etc.)
+- `context.observing_run.virtual2real_spw_id(vspw, ms)` / `real2virtual_spw_id(...)` — translate between abstract pipeline SPW IDs and CASA-native IDs
+- `context.observing_run.virtual_science_spw_ids` — virtual SPW catalog
 
 ---
 
