@@ -8,7 +8,7 @@ This document contains implementation details and reference material that supple
 
 The following implementation notes describe how selected use cases are realized in the current pipeline codebase. They were separated from the use-case definitions to keep the requirements document focused on requirements; use cases not listed here do not currently have appendix-level implementation notes in this document.
 
-### UC-01 — Load, Update, and Provide Access to Observation Metadata
+### UC-01 — Populate, Access, and Provide Observation Metadata
 
 **Implementation notes** — `context.observing_run` holds the observation metadata and is the most frequently queried attribute of the context:
 

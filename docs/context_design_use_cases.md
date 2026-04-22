@@ -15,6 +15,7 @@ See also:
 
 - [docs/radps_use_case_mapping.md](radps_use_case_mapping.md) (Pipeline UC → RADPS context mapping)
 - [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) (source Pipeline UCs)
+- [docs/context_gap_use_cases.md](context_gap_use_cases.md) (gap scenarios that drive additional RADPS context use cases)
 - [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
 
 Use Case <number>: <title>
@@ -66,7 +67,7 @@ Use Case UC1: Initialize or Load a Run Context
     Actors:
         Operator (human or automation), Planner service, Context Store.
     Goals:
-        Create a new run record with stable identifiers, initial metadata, and run-level location configuration, or load an existing run for resume. The context must be driver-agnostic: any orchestration front-end (automated batch, interactive session, recipe evaluator) must produce an equivalent run record, and the context contract must remain stable across drivers (Pipeline UC-08). Run identity and artifact location layout must be first-class context data (Pipeline UC-03).
+        Create a new run record with stable identifiers, initial metadata, and run-level location configuration, or load an existing run for resume. The context must be driver-agnostic: any orchestration front-end (automated batch, interactive session, recipe evaluator) must produce an equivalent run record, and the context contract must remain stable across drivers (Pipeline UC-11). Run identity, driver metadata, and artifact location/layout policy must be first-class context data so save/restore and export workflows remain portable (Pipeline UC-12, UC-19).
     Preconditions:
         Inputs are identified (dataset IDs/paths); caller is authorized to create or access the run.
     Postconditions / Outputs:
@@ -125,7 +126,7 @@ Use Case UC3: Record a Node Attempt Lifecycle and Maintain Execution History (St
     Actors:
         Executor/worker, Context Store.
     Goals:
-        Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for reporting, progress tracking, export, and regression validation (Pipeline UC-06, UC-14). Node ordering within the DAG replaces legacy stage numbering and must remain coherent across resumes.
+        Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for progress tracking, reporting, QA, debugging, and export (Pipeline UC-07, UC-08, UC-15, UC-17, UC-19). Node ordering within the DAG replaces legacy stage numbering and must remain coherent across resumes.
     Preconditions:
         `run_id` and `plan_id` exist; `node_id` exists in the plan; worker is authorized to update run state.
     Postconditions / Outputs:
@@ -157,15 +158,15 @@ Use Case UC4: Register Produced Artifacts with Lineage
     Actors:
         Worker, Context Store (artifact registry).
     Goals:
-        Make artifacts discoverable and traceable: what was produced, by whom, from what inputs, and where it lives.
+        Make artifacts discoverable and traceable: what was produced, by whom, from what inputs, and where it lives across local, shared-filesystem, or object-store backends.
     Preconditions:
         Artifact data has been written to durable storage (local/shared/object store) and is readable.
     Postconditions / Outputs:
         `artifact_id` exists with type, lineage, and one or more locations; artifact is linked to producing `attempt_id`.
     Context Data / Artifacts:
-        Writes artifact metadata, optional hashes/checksums, and retention hints.
+        Writes artifact metadata, optional hashes/checksums, retention hints, and one or more storage-agnostic location references/access policies.
     Transaction / Idempotency Notes:
-        Registration must be idempotent for the same content/location; avoid duplicate artifacts for retried attempts.
+        Registration must be idempotent for the same logical artifact/content and allow multiple durable locations to be attached without creating duplicate logical artifacts.
     Observability / Audit:
         Emit ArtifactRegistered event.
     Basic Flow:
@@ -173,6 +174,7 @@ Use Case UC4: Register Produced Artifacts with Lineage
         2. Worker submits artifact metadata (type, inputs, locations) to Context Store.
         3. Context Store registers artifact and links it to the producing attempt.
     Alternative Flows (optional):
+        - Artifact is first written to worker-local scratch; registration is deferred or recorded as non-exportable until durable storage is confirmed.
         - Location becomes unavailable after write; artifact registration fails and the node attempt is marked failed.
 
 Use Case UC5: Create and Validate an Explicit Checkpoint
@@ -214,23 +216,24 @@ Use Case UC6: Resume or Partial Re-run with Downstream Invalidation
     Actors:
         Operator/automation, Context Store.
     Goals:
-        Resume a run safely from a checkpoint or re-run a subgraph while maintaining provenance.
+        Resume a run safely from a checkpoint or re-run a subgraph/partition while maintaining provenance and explicit dependency/invalidation semantics.
     Preconditions:
         `run_id` exists; a checkpoint exists or a rerun scope is defined; caller is authorized.
     Postconditions / Outputs:
         Selected nodes are marked runnable; downstream nodes/artifacts are marked stale/tombstoned as appropriate; new attempts are tracked.
     Context Data / Artifacts:
-        Writes invalidation markers, rerun reason, and links to checkpoint/plan revision.
+        Writes invalidation markers, dependency/version edges, rerun reason, and links to checkpoint/plan revision.
     Transaction / Idempotency Notes:
         Invalidation must be ACID to avoid mixed “old/new” downstream states.
     Observability / Audit:
         Emit RunResumed/RerunRequested events with reason and scope.
     Basic Flow:
         1. Actor requests resume/rerun for a scope.
-        2. Context Store marks downstream state stale and records the rerun intent.
+        2. Context Store marks downstream state stale according to the dependency graph and records the rerun intent.
         3. Executor observes runnable nodes and proceeds (out of scope here).
     Alternative Flows (optional):
         - Resume fails due to schema/version incompatibility; system returns a structured incompatibility error.
+        - Requested rerun scope overlaps active work; system rejects the rerun or requires cancellation/serialization before proceeding.
 
 Use Case UC7: Operator Annotation and Controlled Overrides
 
@@ -329,19 +332,19 @@ Use Case UC10: Query Dataset / Observation Catalog (Read-Only View)
     Actors:
         Worker, QA/reporting service, Context Store.
     Goals:
-        Provide fast, consistent access to observation metadata (MSv4 inventory, fields, SPWs, scans, and mapping metadata) required by tasks and reporting.
+        Provide fast, consistent access to observation metadata (MSv4 inventory, fields, SPWs, scans, data-type metadata, and cross-dataset identity/matching records) required by tasks and reporting. This is the read-only catalog surface underlying more specialized matching workflows such as UC22.
     Preconditions:
         `run_id` exists; dataset inventory has been registered in context.
     Postconditions / Outputs:
         No new durable state is required; consumers obtain a consistent view of metadata.
     Context Data / Artifacts:
-        Reads Dataset/Observation Catalog records; may read mapping tables (virtual↔real equivalents) if applicable.
+        Reads Dataset/Observation Catalog records, data-type metadata, and cross-dataset identity/matching tables.
     Transaction / Idempotency Notes:
         Reads should be served from a consistent snapshot (e.g., transaction-level or checkpoint-level read).
     Observability / Audit:
         Optional: record query provenance for expensive reports (not required for all task-level reads).
     Basic Flow:
-        1. Consumer requests catalog data for a scope (by dataset, field/spw/scan partition, or logical selection).
+        1. Consumer requests catalog data for a scope (by dataset, field/spw/scan partition, logical selection, or data type).
         2. Context Store returns typed metadata records.
     Alternative Flows (optional):
         - Requested scope not found; return a structured “unknown dataset/partition” error.
@@ -413,7 +416,7 @@ Use Case UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
     Actors:
         QA/reporting service, debugging/inspection tools, CI harness, Context Store.
     Goals:
-        Provide a consistent read view of run state and artifact registry for rendering/scoring without depending on worker memory. Must also support inspection and debugging use cases: diagnosing failures (what ran, what data was loaded, what state was produced), validating deterministic outputs, and surfacing failures beyond raw task exceptions (Pipeline UC-12, UC-14).
+        Provide a consistent read view of run state and artifact registry for rendering, QA, export, and inspection without depending on worker memory. Must also support debugging use cases: diagnosing failures (what ran, what data was loaded, what state was produced), validating deterministic outputs, and surfacing failures beyond raw task exceptions (Pipeline UC-15, UC-16, UC-17, UC-19).
     Preconditions:
         A checkpoint exists or a consistent snapshot boundary is defined (e.g., “as of attempt X completion”).
     Postconditions / Outputs:
@@ -528,7 +531,7 @@ Use Case UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Exec
     Actors:
         Executor/worker, Context Store.
     Goals:
-        Allow workers to read a consistent snapshot of required context state while ensuring all writes return through ACID transactions (no “forked pickles” as system-of-record).
+        Allow workers to read a consistent snapshot of required context state while ensuring all writes return through ACID transactions (no “forked pickles” as system-of-record), including asynchronous/overlapping execution of independent work across partitions.
     Preconditions:
         `run_id` exists; a snapshot boundary exists (checkpoint, plan revision boundary, or latest-committed); worker is authorized.
     Postconditions / Outputs:
@@ -536,7 +539,7 @@ Use Case UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Exec
     Context Data / Artifacts:
         Reads snapshot views of ledger/catalog/state; writes attempt state, artifacts, and patches.
     Transaction / Idempotency Notes:
-        Snapshot reads must be consistent; write-back must be ACID with conflict detection (per-partition where possible). All submissions must be idempotent under retry.
+        Snapshot reads must be consistent; write-back must be ACID with conflict detection and partition-scoped merges where possible. All submissions must be idempotent under retry.
     Observability / Audit:
         Record snapshot boundary and patch application events; link patches to the worker identity and attempt.
     Basic Flow:
@@ -546,3 +549,153 @@ Use Case UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Exec
         4. Context Store commits patches and updates derived state.
     Alternative Flows (optional):
         - Write conflict detected; worker must refresh snapshot and retry with a new base version.
+
+Use Case UC18: Publish Run State to External Systems
+
+    Relevant Stakeholders
+        QA dashboards, monitoring tools, archive ingest systems, schedulers, operators.
+    Frequency:
+        High.
+    Importance:
+        High.
+    Actors:
+        External consumer/service, Context Store, notification dispatcher.
+    Goals:
+        Provide timely, stable access to current processing state, lifecycle events, and summary views without requiring consumers to scrape product files or worker-local storage. The design must support both pull-style queries and push-style subscriptions/webhooks for selected lifecycle events.
+    Preconditions:
+        `run_id` exists; consumer or subscription is authorized; the requested summary/event schema version is supported.
+    Postconditions / Outputs:
+        External consumers can query current state or receive subscribed notifications; delivery attempts and subscription state are recorded durably.
+    Context Data / Artifacts:
+        Reads run ledger, artifact registry, QA records, and summary views; writes subscription definitions, delivery records, and exported summary/manifest artifacts when required.
+    Transaction / Idempotency Notes:
+        Subscription changes and delivery-state updates must be atomic; notifications must be idempotent and retryable.
+    Observability / Audit:
+        Emit SubscriptionCreated/Updated, NotificationDispatched, and NotificationFailed events with consumer identity and schema version.
+    Basic Flow:
+        1. Consumer registers or uses an existing subscription/query contract for selected run events or summaries.
+        2. Context Store serves query results or dispatches notifications when the selected events occur.
+        3. Delivery attempts and any exported summary artifacts are recorded for audit.
+    Alternative Flows (optional):
+        - Consumer requests an unsupported schema version; request is rejected with negotiation details.
+        - Delivery endpoint is unavailable; dispatcher retries per policy and records failure state without losing the event.
+
+Use Case UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
+
+    Relevant Stakeholders
+        Pipeline operators, auditors, regression harnesses, reproducibility tooling.
+    Frequency:
+        High.
+    Importance:
+        High.
+    Actors:
+        Worker, reporting service, Context Store.
+    Goals:
+        Capture the immutable provenance required to reproduce or audit a run: exact input identities/hashes, parameters, software versions, execution environment, hardware, scheduler/workload-manager details, and lineage links for each attempt and exported product.
+    Preconditions:
+        An attempt or export operation exists; input identifiers are available for hashing/fingerprinting; environment metadata is available.
+    Postconditions / Outputs:
+        An immutable provenance record exists and is linked to the relevant `attempt_id`, `artifact_id`, or exported manifest.
+    Context Data / Artifacts:
+        Writes provenance envelopes, input hashes/fingerprints, environment records, and deterministic-execution annotations.
+    Transaction / Idempotency Notes:
+        Provenance capture must commit atomically with attempt completion or artifact registration where required by policy; repeated submissions from a retried client must not fork multiple provenance records for the same logical event.
+    Observability / Audit:
+        Emit ProvenanceCaptured events and surface missing or partial provenance fields explicitly.
+    Basic Flow:
+        1. Worker or reporting service collects input hashes/fingerprints and environment metadata.
+        2. Context Store validates required fields and stores the immutable provenance envelope linked to the attempt or artifact.
+        3. Downstream reporting/export queries these records directly.
+    Alternative Flows (optional):
+        - Some hashes are unavailable at completion time; system records partial provenance with explicit missing-field markers and may block checkpoint/export per policy.
+        - Environment details change mid-run; new attempts record new environment versions rather than mutating prior provenance.
+
+Use Case UC20: Serve a Language-Neutral Context API
+
+    Relevant Stakeholders
+        Non-Python clients (C++, Julia, JavaScript dashboards), external tools, pipeline services.
+    Frequency:
+        High.
+    Importance:
+        High.
+    Actors:
+        Client application, Context API service, Context Store.
+    Goals:
+        Provide a stable, typed, language-neutral API for querying and updating context state without coupling clients to storage layout or Python object models. Mission-critical metadata, heuristics inputs, transactional workflow operations, and artifact lookup must be covered first; higher-level QA/reporting endpoints may be layered separately.
+    Preconditions:
+        An API schema/version is published; client is authorized; requested operation is allowed for the client role.
+    Postconditions / Outputs:
+        Client completes a query or mutation through a stable contract; response metadata indicates the schema/contract version used.
+    Context Data / Artifacts:
+        Reads/writes the same ledger, catalog, state, and artifact records used by in-process services; publishes schema descriptors and typed error codes.
+    Transaction / Idempotency Notes:
+        Mutating API calls must preserve the same ACID/idempotency guarantees as internal callers; schema evolution must be versioned and backward-compatible within the supported window.
+    Observability / Audit:
+        Record API access, schema version, caller identity, and mutation idempotency keys where relevant.
+    Basic Flow:
+        1. Client queries service metadata or binds to a published schema version.
+        2. Client submits a typed query or mutation request.
+        3. Context service validates authorization/schema compatibility, executes the operation, and returns typed records or error codes.
+    Alternative Flows (optional):
+        - Requested API version is unsupported; service returns compatible versions or upgrade guidance.
+        - Client requests an operation not exposed by the public contract; service rejects it with a typed capability error.
+
+Use Case UC21: Register Incremental Dataset Updates and Versioned Results
+
+    Relevant Stakeholders
+        Data ingest systems, workflow engine, incremental processing tasks, operators.
+    Frequency:
+        Medium to high.
+    Importance:
+        High.
+    Actors:
+        Ingest service, planner/executor, Context Store.
+    Goals:
+        Allow new data to be registered into an active run/session, trigger incremental processing, and ensure new outputs are versioned rather than overwriting prior results.
+    Preconditions:
+        `run_id` exists; incremental-ingest policy allows new data; incoming data is identifiable and scoped to an existing or new session partition.
+    Postconditions / Outputs:
+        Dataset catalog contains a new dataset/version record; affected plan nodes or partitions are marked runnable; newly produced artifacts/results receive new version identifiers.
+    Context Data / Artifacts:
+        Writes dataset version records, ingest lineage, runnable-node markers, invalidation/update edges, and result/artifact version metadata.
+    Transaction / Idempotency Notes:
+        Dataset registration must be atomic and idempotent for the same ingest event; version assignment and downstream invalidation must commit together to avoid mixed old/new state.
+    Observability / Audit:
+        Emit DatasetVersionRegistered and IncrementalProcessingRequested events with ingest source and scope.
+    Basic Flow:
+        1. Ingest system submits new dataset material or a new version reference for an active run.
+        2. Context Store registers the dataset version and determines the affected scopes/nodes.
+        3. Context Store marks the relevant work runnable and ensures subsequent outputs are versioned.
+    Alternative Flows (optional):
+        - Incoming data conflicts with an existing immutable dataset version; system rejects it or records it as a separate branch/version per policy.
+        - Incremental registration arrives while dependent work is running; system serializes, branches, or defers the update according to policy.
+
+Use Case UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
+
+    Relevant Stakeholders
+        Calibration tasks, imaging tasks, heuristics, pipeline operators.
+    Frequency:
+        High.
+    Importance:
+        High.
+    Actors:
+        Worker, heuristic service, operator, Context Store.
+    Goals:
+        Resolve shared identity across heterogeneous datasets that do not share native SPW numbering, field numbering, source labels, or data-column layouts. Matching must support exact semantics for calibration-style consumers, overlap/partial semantics for imaging-style consumers, and explicit override rules with recorded rationale when defaults are ambiguous or incorrect.
+    Preconditions:
+        Relevant datasets are registered; matching schema/version is known; caller is authorized to read or set overrides.
+    Postconditions / Outputs:
+        Consumer receives a resolved match set and, when overrides are supplied, the override records are durably stored with rationale and scope.
+    Context Data / Artifacts:
+        Reads cross-dataset identity records, field/source/SPW/column metadata, and matching policies; writes override records and rationale metadata when explicit mappings are applied.
+    Transaction / Idempotency Notes:
+        Match-resolution reads must come from a consistent snapshot; override writes must be versioned, scoped, and idempotent for the same logical mapping request.
+    Observability / Audit:
+        Record MatchResolved and MatchOverrideApplied events including matching mode, scope, and actor identity.
+    Basic Flow:
+        1. Consumer requests a match set for a scope and matching mode.
+        2. Context Store evaluates identity records, matching policy, and any existing overrides.
+        3. Context Store returns the resolved match set and records any newly supplied override.
+    Alternative Flows (optional):
+        - Multiple candidate matches remain after policy evaluation; service returns an ambiguity error or candidate set requiring heuristic/user choice.
+        - An override conflicts with an existing locked mapping; service rejects it unless an authorized replacement workflow is used.
