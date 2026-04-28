@@ -12,6 +12,8 @@ This glossary defines common distributed-systems, data-management, and context-c
 
 - **Artifact registry**: The subsystem (often a table/service) that records artifact IDs, types, producers, locations, hashes (when feasible), lineage, version relationships, and lifecycle state.
 
+- **Archival product**: A previously generated durable product imported from outside the active run so the context can be initialized or resumed from a valid mid-pipeline state.
+
 - **Attempt**: A single execution try of a planned unit of work (a node). Retries create new attempts.
 
 - **Checkpoint**: A durable “safe restart point” that references a closed, consistent set of state + artifacts.
@@ -28,7 +30,11 @@ This glossary defines common distributed-systems, data-management, and context-c
 
 - **Event subscription / webhook**: A push-style integration mechanism where external consumers receive selected lifecycle events or summary notifications. Delivery must be retryable and idempotent.
 
+- **Execution-control tag**: Persisted metadata on a dataset, stage, or run that the workflow orchestration layer interprets to alter execution behavior (for example pause, skip, or divert processing).
+
 - **Idempotency**: A property where repeating an operation (due to retries/timeouts) does not create additional side effects beyond the first successful application.
+
+- **Initialization from intermediate state**: Constructing a valid run context from pre-existing archival products or prior checkpoints so earlier stages can be skipped and processing can continue from a mid-pipeline boundary.
 
 - **Invariant**: A condition that must remain true while the system is operating, not just at the end of a single operation.
 
@@ -67,6 +73,10 @@ This glossary defines common distributed-systems, data-management, and context-c
 - **Transaction boundary**: The scope of data changes that must commit atomically.
 
 - **Tombstone / tombstoning**: Recording that an artifact/state was intentionally removed or invalidated (often without immediately deleting underlying storage), preserving audit and preventing dangling references.
+
+- **Workflow orchestration layer / system**: The component that plans, schedules, and coordinates execution of pipeline tasks. In RADPS it owns task-graph progression, retries, and enforcement of execution-control decisions, while `radps-context` persists the durable state those decisions depend on.
+
+- **xradio**: The xarray-based data access layer expected to expose MSv4-centric observation metadata and storage structures to RADPS. `radps-context` is expected to coordinate with, rather than duplicate, these self-describing dataset representations where possible.
 
 ## Legacy Pipeline terms (used in current Pipeline context docs)
 

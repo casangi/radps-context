@@ -1,4 +1,4 @@
-Use Case Template (Context Design)
+RADPS Use Case Template (Context Design)
 
 Adapted from “Use Case Modeling” by Kurt Bittner and Ian Spence.
 
@@ -15,10 +15,9 @@ See also:
 
 - [docs/radps_use_case_mapping.md](radps_use_case_mapping.md) (Pipeline UC → RADPS context mapping)
 - [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) (source Pipeline UCs)
-- [docs/context_gap_use_cases.md](context_gap_use_cases.md) (gap scenarios that drive additional RADPS context use cases)
 - [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
 
-Use Case <number>: <title>
+RADPS UC<number>: <title>
 
     Relevant Stakeholders
         The relevant stakeholders for this use case.
@@ -47,7 +46,7 @@ Use Case <number>: <title>
 
 ---
 
-Draft Use Cases (RADPS Context; numbered UC*)
+Draft RADPS Use Cases
 
 These are first-draft entries focused on **context** (run ledger + artifact registry + provenance), not the entire RADPS workflow.
 
@@ -55,8 +54,9 @@ Notes on numbering:
 
 - These use `UC*` numbering for easy cross-reference.
 - They are **RADPS context use cases**; when citing them next to Pipeline UCs, refer to them as “RADPS UC#”.
+- The requirement trace in [docs/requirements_and_ownership.md](requirements_and_ownership.md) distinguishes workflow-only responsibilities from shared workflow/context responsibilities. This document only expands the use cases that require `radps-context` behavior; workflow-only items such as current UC-07, UC-08, and GAP-01 are intentionally referenced but not modeled here as standalone context use cases.
 
-Use Case UC1: Initialize or Load a Run Context
+RADPS UC1: Initialize or Load a Run Context
 
     Relevant Stakeholders
         Operations, pipeline developers, QA reviewers, runtime services (planner/executor/reporting).
@@ -86,7 +86,7 @@ Use Case UC1: Initialize or Load a Run Context
         - Load fails because the run/version is unsupported; system returns a structured incompatibility error.
         - Driver submits additional metadata (project IDs, performance parameters) as part of creation; Context Store records these as immutable-after-init run metadata.
 
-Use Case UC2: Persist a Plan Representation (Plan Registration)
+RADPS UC2: Persist a Plan Representation (Plan Registration)
 
     Relevant Stakeholders
         Planner developers, operations (reproducibility), reporting/audit consumers.
@@ -115,7 +115,7 @@ Use Case UC2: Persist a Plan Representation (Plan Registration)
     Alternative Flows (optional):
         - Validation fails (schema/version mismatch); plan is rejected with a clear error.
 
-Use Case UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start/Finish/Retry)
+RADPS UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start/Finish/Retry)
 
     Relevant Stakeholders
         Operations (recoverability), QA/review, developers (debugging), reporting, regression harnesses.
@@ -147,7 +147,7 @@ Use Case UC3: Record a Node Attempt Lifecycle and Maintain Execution History (St
         - Duplicate completion arrives; Context Store ignores it (idempotent) or returns existing completion.
         - Regression harness queries the execution history to validate deterministic outputs, durations, and failure signals across runs.
 
-Use Case UC4: Register Produced Artifacts with Lineage
+RADPS UC4: Register Produced Artifacts with Lineage
 
     Relevant Stakeholders
         Operations (delivery/retention), QA, reporting, reproducibility.
@@ -177,7 +177,7 @@ Use Case UC4: Register Produced Artifacts with Lineage
         - Artifact is first written to worker-local scratch; registration is deferred or recorded as non-exportable until durable storage is confirmed.
         - Location becomes unavailable after write; artifact registration fails and the node attempt is marked failed.
 
-Use Case UC5: Create and Validate an Explicit Checkpoint
+RADPS UC5: Create and Validate an Explicit Checkpoint
 
     Relevant Stakeholders
         Operations, developers (safe restart), cost control.
@@ -205,7 +205,7 @@ Use Case UC5: Create and Validate an Explicit Checkpoint
     Alternative Flows (optional):
         - Prerequisites missing; checkpoint is rejected with a list of missing nodes/artifacts.
 
-Use Case UC6: Resume or Partial Re-run with Downstream Invalidation
+RADPS UC6: Resume or Partial Re-run with Downstream Invalidation
 
     Relevant Stakeholders
         Operations (recovery), QA, developers.
@@ -235,7 +235,7 @@ Use Case UC6: Resume or Partial Re-run with Downstream Invalidation
         - Resume fails due to schema/version incompatibility; system returns a structured incompatibility error.
         - Requested rerun scope overlaps active work; system rejects the rerun or requires cancellation/serialization before proceeding.
 
-Use Case UC7: Operator Annotation and Controlled Overrides
+RADPS UC7: Operator Annotation and Controlled Overrides
 
     Relevant Stakeholders
         Operations, QA, science support, audit/provenance consumers.
@@ -263,7 +263,7 @@ Use Case UC7: Operator Annotation and Controlled Overrides
     Alternative Flows (optional):
         - Permission denied; request is rejected and logged.
 
-Use Case UC8: Export Provenance Manifest / Report as an Artifact
+RADPS UC8: Export Provenance Manifest / Report as an Artifact
 
     Relevant Stakeholders
         Operations (delivery), QA, archive/consumers.
@@ -292,7 +292,7 @@ Use Case UC8: Export Provenance Manifest / Report as an Artifact
     Alternative Flows (optional):
         - Missing required records; reporting fails with a clear list of missing context elements.
 
-Use Case UC9: Artifact Retention and Tombstoning (Safe Cleanup)
+RADPS UC9: Artifact Retention and Tombstoning (Safe Cleanup)
 
     Relevant Stakeholders
         Operations (storage control), audit/provenance consumers.
@@ -321,7 +321,7 @@ Use Case UC9: Artifact Retention and Tombstoning (Safe Cleanup)
     Alternative Flows (optional):
         - Artifact is on hold due to an active investigation; cleanup is skipped and hold reason recorded.
 
-Use Case UC10: Query Dataset / Observation Catalog (Read-Only View)
+RADPS UC10: Query Dataset / Observation Catalog (Read-Only View)
 
     Relevant Stakeholders
         Pipeline algorithms, heuristics, QA, reporting.
@@ -349,7 +349,7 @@ Use Case UC10: Query Dataset / Observation Catalog (Read-Only View)
     Alternative Flows (optional):
         - Requested scope not found; return a structured “unknown dataset/partition” error.
 
-Use Case UC11: Apply Transactional Calibration State Update
+RADPS UC11: Apply Transactional Calibration State Update
 
     Relevant Stakeholders
         Calibration tasks, operations (resume correctness), QA.
@@ -377,7 +377,7 @@ Use Case UC11: Apply Transactional Calibration State Update
     Alternative Flows (optional):
         - Conflict detected with a concurrent incompatible update; patch is rejected and worker must retry with updated base version.
 
-Use Case UC12: Update Imaging State (Schema’d Scratch Pad)
+RADPS UC12: Update Imaging State (Schema’d Scratch Pad)
 
     Relevant Stakeholders
         Imaging tasks/heuristics, operations (reproducibility), reporting.
@@ -405,7 +405,7 @@ Use Case UC12: Update Imaging State (Schema’d Scratch Pad)
     Alternative Flows (optional):
         - Schema/version mismatch; update rejected with required migration/version info.
 
-Use Case UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
+RADPS UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
 
     Relevant Stakeholders
         QA, weblog/report generation, developers, CI/regression harnesses, operations.
@@ -434,7 +434,7 @@ Use Case UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
         - Boundary not available (no checkpoint); service may request “latest committed” with caveats recorded.
         - Debugging/CI tool queries snapshot to compare outputs across runs or validate expected artifacts and QA outcomes.
 
-Use Case UC14: Resolve Named Outputs Instead of Stage-Index Walking
+RADPS UC14: Resolve Named Outputs Instead of Stage-Index Walking
 
     Relevant Stakeholders
         Task developers, operations (correct reruns), performance.
@@ -462,7 +462,7 @@ Use Case UC14: Resolve Named Outputs Instead of Stage-Index Walking
     Alternative Flows (optional):
         - Output not found; consumer fails fast with a structured missing-dependency error.
 
-Use Case UC15: Append-Only Event Log / Patch Log (Audit + Replay)
+RADPS UC15: Append-Only Event Log / Patch Log (Audit + Replay)
 
     Relevant Stakeholders
         Operations, QA, developers (debugging), external integrations, provenance/audit consumers.
@@ -491,7 +491,7 @@ Use Case UC15: Append-Only Event Log / Patch Log (Audit + Replay)
     Alternative Flows (optional):
         - Duplicate event submission returns the existing event ID.
 
-Use Case UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
+RADPS UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
 
     Relevant Stakeholders
         Domain teams (ngVLA, WSU), pipeline algorithm developers, operations.
@@ -520,7 +520,7 @@ Use Case UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
     Alternative Flows (optional):
         - Unknown extension schema/version; update is rejected with a structured error.
 
-Use Case UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Execution)
+RADPS UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Execution)
 
     Relevant Stakeholders
         Executor/workers, operations (scalability/reliability), developers.
@@ -550,7 +550,7 @@ Use Case UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Exec
     Alternative Flows (optional):
         - Write conflict detected; worker must refresh snapshot and retry with a new base version.
 
-Use Case UC18: Publish Run State to External Systems
+RADPS UC18: Publish Run State to External Systems
 
     Relevant Stakeholders
         QA dashboards, monitoring tools, archive ingest systems, schedulers, operators.
@@ -580,7 +580,7 @@ Use Case UC18: Publish Run State to External Systems
         - Consumer requests an unsupported schema version; request is rejected with negotiation details.
         - Delivery endpoint is unavailable; dispatcher retries per policy and records failure state without losing the event.
 
-Use Case UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
+RADPS UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
 
     Relevant Stakeholders
         Pipeline operators, auditors, regression harnesses, reproducibility tooling.
@@ -610,7 +610,7 @@ Use Case UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
         - Some hashes are unavailable at completion time; system records partial provenance with explicit missing-field markers and may block checkpoint/export per policy.
         - Environment details change mid-run; new attempts record new environment versions rather than mutating prior provenance.
 
-Use Case UC20: Serve a Language-Neutral Context API
+RADPS UC20: Serve a Language-Neutral Context API
 
     Relevant Stakeholders
         Non-Python clients (C++, Julia, JavaScript dashboards), external tools, pipeline services.
@@ -640,7 +640,7 @@ Use Case UC20: Serve a Language-Neutral Context API
         - Requested API version is unsupported; service returns compatible versions or upgrade guidance.
         - Client requests an operation not exposed by the public contract; service rejects it with a typed capability error.
 
-Use Case UC21: Register Incremental Dataset Updates and Versioned Results
+RADPS UC21: Register Incremental Dataset Updates and Versioned Results
 
     Relevant Stakeholders
         Data ingest systems, workflow engine, incremental processing tasks, operators.
@@ -670,7 +670,7 @@ Use Case UC21: Register Incremental Dataset Updates and Versioned Results
         - Incoming data conflicts with an existing immutable dataset version; system rejects it or records it as a separate branch/version per policy.
         - Incremental registration arrives while dependent work is running; system serializes, branches, or defers the update according to policy.
 
-Use Case UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
+RADPS UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
 
     Relevant Stakeholders
         Calibration tasks, imaging tasks, heuristics, pipeline operators.
@@ -699,3 +699,65 @@ Use Case UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
     Alternative Flows (optional):
         - Multiple candidate matches remain after policy evaluation; service returns an ambiguity error or candidate set requiring heuristic/user choice.
         - An override conflicts with an existing locked mapping; service rejects it unless an authorized replacement workflow is used.
+
+RADPS UC23: Initialize Context from Intermediate Archival State
+
+    Relevant Stakeholders
+        Pipeline operators, archive ingest systems, workflow engine, operations.
+    Frequency:
+        Medium.
+    Importance:
+        High.
+    Actors:
+        Archive ingest service, operator, Context Store.
+    Goals:
+        Materialize a valid mid-pipeline run state from pre-existing archival products or other previously generated durable artifacts so that earlier stages can be skipped and later stages can execute against a normal-looking context state.
+    Preconditions:
+        Archival products are identifiable and accessible; the target run exists or is being created; the ingestion policy identifies which prior stages are considered satisfied.
+    Postconditions / Outputs:
+        Dataset, artifact, calibration/imaging, and provenance records required for the imported boundary exist in context and are linked to their archival sources; the restored boundary is marked as a valid resume point.
+    Context Data / Artifacts:
+        Writes dataset/catalog records, imported artifact registrations, imported state snapshots or equivalent typed records, provenance links to archival sources, and resume-boundary metadata.
+    Transaction / Idempotency Notes:
+        Initialization must be atomic for the declared boundary so the run never exposes a partially reconstructed mid-pipeline state. Repeating the same ingest request must be idempotent for the same archival source set.
+    Observability / Audit:
+        Emit IntermediateStateInitialized events with source identities, imported stage boundary, actor identity, and any fields that were inferred rather than directly imported.
+    Basic Flow:
+        1. Actor submits archival products and declares the intended initialization boundary.
+        2. Context Store validates the source products, required metadata, and compatibility of the imported state.
+        3. Context Store registers the imported artifacts and writes the corresponding typed state records.
+        4. Context Store marks the resulting state as a valid resume boundary for downstream workflow logic.
+    Alternative Flows (optional):
+        - Imported products are insufficient to construct a valid boundary; initialization is rejected with a list of missing state elements.
+        - Imported records conflict with immutable run state already present; system rejects the import or requires a separate branch/run per policy.
+
+RADPS UC24: Persist Execution-Control Tags for Workflow Decisions
+
+    Relevant Stakeholders
+        Pipeline operators, workflow orchestration services, heuristics, audit/provenance consumers.
+    Frequency:
+        Medium.
+    Importance:
+        High.
+    Actors:
+        Operator, heuristic service, workflow service, Context Store.
+    Goals:
+        Persist execution-control tags (for example pause, skip, or reroute directives) on runs, datasets, or stage scopes so the workflow layer can reliably enforce them throughout the lifetime of the run.
+    Preconditions:
+        Target run/dataset/stage scope exists; caller is authorized to create or update execution-control tags.
+    Postconditions / Outputs:
+        Tag records exist with scope, value, rationale, author, and lifecycle metadata; workflow consumers can query them through the normal context contract.
+    Context Data / Artifacts:
+        Writes execution-control tag records and rationale/annotation metadata; reads existing tag state for conflict detection and workflow queries.
+    Transaction / Idempotency Notes:
+        Tag writes must be atomic and versioned within their scope. Repeating the same logical tag request must be idempotent, while conflicting concurrent tag updates must be detected explicitly.
+    Observability / Audit:
+        Emit ExecutionControlTagApplied, Updated, or Cleared events with actor identity, scope, rationale, and effective time.
+    Basic Flow:
+        1. Actor submits an execution-control tag for a run, dataset, or stage scope.
+        2. Context Store validates authorization, scope, and any existing conflicting tag state.
+        3. Context Store records the tag and returns the persisted state.
+        4. Workflow services query the tag state before scheduling or continuing affected work.
+    Alternative Flows (optional):
+        - Submitted tag conflicts with a locked or already-effective control decision; request is rejected unless an authorized override workflow is used.
+        - Workflow service requests tags for an unknown scope; Context Store returns a structured not-found error.
