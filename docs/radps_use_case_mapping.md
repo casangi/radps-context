@@ -4,7 +4,7 @@ This note maps the **current Pipeline context** use cases documented in [docs/co
 
 See also:
 
-- [docs/context_design_use_cases.md](context_design_use_cases.md) (draft RADPS context use cases)
+- [docs/radps_context_design_use_cases.md](radps_context_design_use_cases.md) (draft RADPS context use cases)
 - [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) (source Pipeline use cases)
 - [docs/context_gap_use_cases.md](context_gap_use_cases.md) (gap scenarios that expand the RADPS context contract)
 - [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
@@ -196,7 +196,7 @@ A minimal supported set:
 
 ## Additional RADPS context use cases (context-scoped)
 
-Concrete RADPS context use cases are drafted in [docs/context_design_use_cases.md](context_design_use_cases.md). These cover:
+Concrete RADPS context use cases are drafted in [docs/radps_context_design_use_cases.md](radps_context_design_use_cases.md). These cover:
 
 - run + plan lifecycle (RADPS UC1-RADPS UC3)
 - artifact + checkpoint lifecycle (RADPS UC4-RADPS UC9)
