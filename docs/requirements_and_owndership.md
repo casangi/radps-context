@@ -70,27 +70,109 @@ RADPS Requirements: ALMA-TR07.1, ALMA-TR07.2, ALMA-TR08, ALMA-TR05, ALMA-TR03
 UC-19 — Provide State for Product Export  
 RADPS Requirements: ALMA-TR51, CSS9066
 
-## 2\. GAP Use Cases 
+## 2. GAP Use Cases 
 
-These use cases are implied by RADPS Requirements and were not covered by existing use cases: 
+The following gap use cases capture critical system capabilities that are explicitly required or implied by RADPS requirements, but are not currently supported by the existing pipeline context design:
 
-* **GAP-01: Asynchronous Execution** — requires snapshot isolation, transactional merges, and conflict detection.  
-* **GAP-02: Provenance and Reproducibility** — requires immutable per-attempt records, input hashing, and lineage capture.  
-* **GAP-03: Partial Re-execution / Targeted Rerun** — requires explicit dependency tracking and invalidation semantics at the context level.  
-* **GAP-04: External System Integration** — requires stable identifiers, event subscriptions/webhooks, and exportable summaries/manifests.  
-* **GAP-05: Initialization from Intermediate State ("Warm Start")** — requires the ability to ingest disjointed archival products to construct a valid mid-pipeline state.  
-* **GAP-06: Explicit Tag-Based Execution Control** — requires persisting metadata tags that actively inhibit state transitions or pause workflow orchestration.  
-* **GAP-07: Compute Resource & Manual Intervention Book-keeping** — requires tracking execution duration, hardware telemetry, and manual workflow interruptions.
+* **GAP-01: Asynchronous execution** — requires snapshot isolation, transactional merges, and conflict detection.
+* **GAP-02: Distributed execution without a shared filesystem** — requires artifact references decoupled from paths and a context that serves as the system-of-record.
+* **GAP-03: Provenance and Reproducibility** — requires immutable per-attempt records, input hashing, and lineage capture.  
+* **GAP-04: Partial Re-execution / Targeted Rerun** — requires explicit dependency tracking and invalidation semantics at the context level.  
+* **GAP-05: External System Integration** — requires stable identifiers, event subscriptions/webhooks, and exportable summaries/manifests.  
+* **GAP-06: Initialization from Intermediate State** — requires the ability to ingest disjointed archival products to construct a valid mid-pipeline state.  
+* **GAP-07: Explicit Tag-Based Execution Control** — requires persisting metadata tags that actively inhibit state transitions or pause workflow orchestration.  
+* **GAP-08: Compute Resource & Manual Intervention Book-keeping** — requires tracking execution duration, hardware telemetry, and manual workflow interruptions.
+(Note on GAP-08: While this capability can be fully satisfied natively by the workflow orchestration system, it is explicitly enumerated here due to its critical relationship with state tracking and final product export.)
+- **GAP-09: Cross-MS matching and heterogeneous dataset coordination** — requires flexible SPW matching semantics (exact and partial/overlap) and data-type tracking across measurement sets, rather than the current single-master-MS assumption.
 
-## 3\. Not Applicable to RADPS (Discarded)
+## Detailed GAP use cases
+
+### GAP-01 — Asynchronous Execution of Independent Work
+
+| | |
+|-------|---------|
+| **Actor(s)** | Workflow orchestration layer, parallel task scheduler |
+| **Summary** | The context must support asynchronous execution at multiple granularities (stage-level and within-stage parallelism) while preventing inconsistent processing state. Tasks must be able to proceed independently without waiting for others to complete when task dependencies allow. This differs from the current parallel-worker pattern, which waits for all work to finish before proceeding. |
+| **Invariant** | Independent tasks may run asynchronously but must not produce conflicting state. |
+| **Postconditions** | Results from asynchronously executed tasks are fully and consistently incorporated into processing state before any dependent work begins. |
+| **RADPS requirements** | CSS9017, CSS9063 |
+
+### GAP-02 — Distributed execution without a shared filesystem
+
+| | |
+|-------|---------|
+| **Actor(s)** | Workflow orchestration layer, distributed workers |
+| **Summary** | Execution must be possible across nodes that do not share a filesystem. Artifacts, datasets, and processing state must be addressable and accessible without relying on local POSIX paths. |
+| **Postconditions** | Processing completes across distributed nodes with context-hosted references providing the necessary artifact access. |
+| **RADPS requirements** | CSS9002, CSS9030 |
+
+### GAP-03 — Provenance and reproducibility
+
+| | |
+|-------|---------|
+| **Actor(s)** | Pipeline operator, auditor, reproducibility tooling |
+| **Summary** | The context must record sufficient provenance – software versions, exact input identities/hashes, task parameters, per-stage state, hardware and execution-environment details (CPU architecture, node/cluster specification, kernel and MPI versions, workload-manager/scheduler configuration, and relevant scheduler limits) — to enable precise reproduction and audit of past runs. |
+| **Postconditions** | Any past processing step can be reproduced or audited using the recorded provenance chain. |
+| **RADPS requirements** | ALMA-TR103, ALMA-TR104, ALMA-TR105 |
+
+### GAP-04 — Partial re-execution / targeted stage re-run
+
+| | |
+|-------|---------|
+| **Actor(s)** | Pipeline operator, developer, workflow engine |
+| **Summary** | The context must support selectively re-running one or more mid-pipeline stages with new parameters while preserving unaffected stages. Downstream stages that depend on changed outputs must be invalidated or recomputed. |
+| **Postconditions** | Processing state reflects the re-run outcomes; affected downstream stages are invalidated or updated; unaffected stages remain intact. |
+| **RADPS requirements** | CSS9038 |
+
+### GAP-05 — External system integration (archive, scheduling, QA dashboards)
+
+| | |
+|-------|---------|
+| **Actor(s)** | QA dashboards, monitoring tools, archive ingest systems, schedulers |
+| **Summary** | External systems need timely access to processing state (current stage, processing time, QA results, lifecycle events) without waiting for offline product files. The context should expose the necessary state via queryable interfaces or event feeds. |
+| **Invariant** | External consumers can access the processing state they require while it remains current. |
+| **Postconditions** | External systems can track processing progress and lifecycle transitions in near real time. |
+| **RADPS requirements** | CSS9046, CSS9047, CSS9048, CSS9049, CSS9050, CSS9056 |
+
+### GAP-06 — Initialization from Intermediate State
+
+| | |
+|-------|---------|
+| **Actor(s)** | Pipeline operator, archive ingest systems, workflow engine |
+| **Summary** | The context must be initializable from pre-existing archival products so that it appears as a valid mid-pipeline state. This allows the pipeline to skip stages whose outputs are already available (e.g., calibration products archived from a prior run) and resume execution from an intermediate point without reprocessing from scratch. |
+| **Postconditions** | The context reflects a valid mid-pipeline state constructed from ingested archival products. Separately, the workflow engine can identify and skip stages covered by that state. |
+| **RADPS requirements** | CSS9038 |
+
+### GAP-07 — Explicit Tag-Based Execution Control
+
+| | |
+|-------|---------|
+| **Actor(s)** | Pipeline operators, workflow orchestration layer, heuristics |
+| **Summary** | The context must store metadata tags (e.g., `[PAUSE]`, `[SKIP]`) on datasets or pipeline stages that actively influence workflow execution and makes the information available to the workflow orchestration system.|
+| **Invariant** | Tags affecting execution control are durably recorded in the context and remain readable by the workflow layer throughout the pipeline run. |
+| **Postconditions** | Workflow execution is modified in accordance with persisted tags; any tag-driven halts or diversions are recorded alongside their rationale. |
+| **RADPS requirements** | CSS9037 |
+
+### GAP-09 — Heterogeneous dataset coordination and flexible matching semantics
+
+| | |
+|-------|---------|
+| **Actor(s)** | Data import tasks, calibration tasks, imaging tasks, heuristics, pipeline operators |
+| **Summary** | Calibration tasks, imaging tasks, and heuristics must be able to match and coordinate data across heterogeneous collections of MSes that may not share native SPW numbering, column layout, or other assumptions. Downstream tasks must be able to select the matching semantics appropriate to their use: calibration tasks require exact SPW matching; imaging tasks require partial/overlap matching (including by frequency or channel range) to combine related spectral windows. Matching must extend beyond SPWs to cover fields, sources, and data column layouts. Where automated matching is ambiguous or fails, heuristics or users must be able to supply explicit mapping rules or override the default matching behavior, with overrides recorded alongside their rationale.
+| **Invariant** | SPW, field, source, and data-column identity are queryable across all registered datasets, regardless of whether those datasets share native numbering or column layout. |
+| **Postconditions** | Downstream tasks can look up applicable SPWs, fields, sources, and data columns across an arbitrary collection of heterogeneous MSes using the appropriate matching semantics for their use, and any user or heuristic overrides are recorded alongside their rationale. |
+| **RADPS requirements** | ALMA-TR07 |
+| **Notes** | UC-02 covers the baseline cross-MS lookup capability currently supported by the context: a unified SPW identifier scheme with a single name-based matching strategy. GAP-11 extends this to multiple selectable matching semantics, additional metadata dimensions (fields, sources, column layouts), and user/heuristic override hooks — none of which are currently supported. |
+
+## 3. Not Applicable to RADPS (Discarded)
 
 These use cases reflect specific architectural choices made in the design of the current pipeline and are not applicable to the future design of RADPS. 
 
-UC-13 — Provide State to Parallel Workers: This is placed by stateless workers and asynchronous task graphs in GAP-01.
+UC-13 — Provide State to Parallel Workers: This is replaced by stateless workers and asynchronous task graphs in GAP-01.
 
 UC-14 — Aggregate Results from Parallel Workers: This is replaced by asynchronous task graphs and direct, independent artifact registration in GAP-01
 
-## 4\. Context use cases by implementation area
+## 4. Context use cases by implementation area
 
 ## radps-context package only
 
@@ -112,7 +194,7 @@ All of UC-07, UC-08, GAP-01, and GAP-07 can be fully satisfied by a workflow orc
 UC-07 — Track Current Execution Progress  
 UC-08 — Preserve Per-Stage Execution Record  
 GAP-01 — Asynchronous Execution of Independent Work  
-GAP-07 – Compute Resource & Manual Intervention Book-keeping
+GAP-08 — Compute Resource & Manual Intervention Book-keeping
 
 ## Workflow and radps-context both:
 
@@ -143,37 +225,38 @@ These use cases involve both the workflow manager system and radps-context compo
 * **radps-context:** Exposes the current processing state and domain-specific artifacts (e.g., registered datasets, calibration tables) for inspection.  
 * **Workflow system:** Exposes task logs, tracebacks, and execution status, and orchestrates the ability to pause or debug a failing node.
 
-**GAP-02 — Provenance and Reproducibility**
+**GAP-03 — Provenance and Reproducibility**
 
 * **radps-context:** Stores the domain-specific provenance lineage data persistently alongside the artifacts.  
 * **Workflow system:** Tracks the actual execution history, which versions of tasks ran, the hardware used, and the parameters passed at runtime.
 
-**GAP-03 — Partial Re-execution / Targeted Stage Re-run**
+**GAP-04 — Partial Re-execution / Targeted Stage Re-run**
 
-* **Radps-context:** Creates a discrete, serializable snapshot of the domain state at any point in the pipeline.  
+* **radps-context:** Creates a discrete, serializable snapshot of the domain state at any point in the pipeline.  
 * **Workflow system:** Handles the invalidation of downstream tasks in the task graph and re-triggers only the necessary execution paths. Fetches the context snapshot from just before the stage to be executed.
 
-**GAP-04 — External System Integration**
+**GAP-05 — External System Integration**
 
 * **radps-context:** Serves as the queryable system holding the current state and QA values for external tools to read.  
 * **Workflow system:** Actively pushes updates, fires webhooks, and notifies external dashboards when tasks start, finish, or transition states.
 
-**GAP-05: Initialization from Intermediate State ("Warm Start")**
+**GAP-06 — Initialization from Intermediate State**
 
 * **radps-context:** Uses the pre-processed archival data to instantiate its state so it appears as a valid mid-pipeline state.  
 * **Workflow system:** Is able to read this context and intelligently skip the prior stages (e.g., calibration) in the task graph. 
 
-**GAP-06: Explicit Tag-Based Execution Control**
+**GAP-07 — Explicit Tag-Based Execution Control**
 
 * **radps-context:** Records information about metadata tags (e.g., `[PAUSE]`) so they can be persisted on datasets.  
 * **Workflow system:** Queries these tags before task execution and actively enforces the logic (e.g., halting the workflow or altering reporting paths).
 
 ## radps-context and xradio / MSv4: 
 
-These use cases will need to be implemented in the `radps-context` package, but it seemed worth pointing out that due to the design of xradio / MSv4, some of the heavy lifting for metadata access, cross-dataset matching, and memory representation will likely be handled natively by xarray datasets and the MSv4 storage schema. Therefore, `radps-context` may not need to duplicate or manage as much low-level observation metadata as the current pipeline context does; instead, it can act as a lightweight coordinator that directly leverages xradio's built-in, self-describing data structures**.**
+These use cases will need to be implemented in the `radps-context` package, but it seemed worth pointing out that due to the design of xradio / MSv4, some of the heavy lifting for metadata access, cross-dataset matching, and memory representation may be handled natively by xarray datasets and the MSv4 storage schema. Therefore, `radps-context` may not need to duplicate or manage as much low-level observation metadata as the current pipeline context does; instead, it can act as a lightweight coordinator that directly leverages xradio's built-in, self-describing data structures**.**
 
 UC-01 — Populate, Access, and Provide Observation Metadata  
 UC-02 — Cross-MS Metadata Matching and Lookup
+GAP-09 — Heterogeneous Dataset Coordination
 
 **Referenced documents:**   
 The following documents were used to determine the RADPS use cases relevant to the pipeline context: 
