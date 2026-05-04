@@ -50,10 +50,10 @@ UC-12 — Save and Restore a Processing Session
 RADPS Requirements: ALMA-TR29, ALMA-TR30, CSS9038, CSS9034
 
 UC-13 — Provide State to Parallel Workers  
-RADPS Requirements: CSS9600, CSS9064.2 *(Note: Discarded/Replaced, see Section 3\)*
+RADPS Requirements: CSS9600, CSS9064.2 *(Note: Discarded/Replaced, see Section 3)*
 
 UC-14 — Aggregate Results from Parallel Workers  
-RADPS Requirements: CSS9600, CSS9064.2 *(Note: Discarded/Replaced, see Section 3\)*
+RADPS Requirements: CSS9600, CSS9064.2 *(Note: Discarded/Replaced, see Section 3)*
 
 UC-15 — Provide Read-Only State for Reporting  
 RADPS Requirements: ALMA-TR50.4, ALMA-TR83
@@ -136,7 +136,7 @@ The following gap use cases capture critical system capabilities that are explic
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operators, workflow orchestration layer, heuristics |
-| **Summary** | The context must store metadata tags (e.g., `[PAUSE]`, `[SKIP]`) on datasets or pipeline stages that actively influence workflow execution and makes the information available to the workflow orchestration system.|
+| **Summary** | The context must store metadata tags (e.g., `[PAUSE]`, `[SKIP]`) on datasets or pipeline stages that actively influence workflow execution and make the information available to the workflow orchestration system.|
 | **Invariant** | Tags affecting execution control are durably recorded in the context and remain readable by the workflow layer throughout the pipeline run. |
 | **Postconditions** | Workflow execution is modified in accordance with persisted tags; any tag-driven halts or diversions are recorded alongside their rationale. |
 | **RADPS requirements** | CSS9037 |
@@ -150,7 +150,7 @@ The following gap use cases capture critical system capabilities that are explic
 | **Invariant** | SPW, field, source, and data-column identity are queryable across all registered datasets, regardless of whether those datasets share native numbering or column layout. |
 | **Postconditions** | Downstream tasks can look up applicable SPWs, fields, sources, and data columns across an arbitrary collection of heterogeneous MSes using the appropriate matching semantics for their use, and any user or heuristic overrides are recorded alongside their rationale. |
 | **RADPS requirements** | ALMA-TR07 |
-| **Notes** | UC-02 covers the baseline cross-MS lookup capability currently supported by the context: a unified SPW identifier scheme with a single name-based matching strategy. GAP-11 extends this to multiple selectable matching semantics, additional metadata dimensions (fields, sources, column layouts), and user/heuristic override hooks — none of which are currently supported. |
+| **Notes** | UC-02 covers the baseline cross-MS lookup capability currently supported by the context: a unified SPW identifier scheme with a single name-based matching strategy. GAP-08 extends this to multiple selectable matching semantics, additional metadata dimensions (fields, sources, column layouts), and user/heuristic override hooks — none of which are currently supported. |
 
 ## 3. Not Applicable to RADPS (Discarded)
 
@@ -162,7 +162,7 @@ UC-14 — Aggregate Results from Parallel Workers: This is replaced by asynchron
 
 ## 4. Context Use Cases by Implementation Area
 
-## `radps-context` package only
+### `radps-context` package only
 
 These use cases do not have any obvious overlap with workflow orchestration functionality. While they may need to interact with the workflow orchestration in some cases, the functionality will need to be satisfied by the `radps-context` package. 
 
@@ -175,15 +175,15 @@ UC-16 — Support QA Evaluation and Store Quality Assessments
 UC-18 — Manage Telescope- and Array-Specific State
 UC-19 — Provide State for Product Export  
 
-## Workflow orchestration layer only 
+### Workflow orchestration layer only 
 
-All of UC-07, UC-08, GAP-01, and GAP-07 can be fully satisfied by a workflow orchestration system such as Prefect and do not need to be implemented in `radps-context`. 
+All of UC-07, UC-08, and GAP-01 can be fully satisfied by a workflow orchestration system such as Prefect and do not need to be implemented in `radps-context`. 
 
 UC-07 — Track Current Execution Progress  
 UC-08 — Preserve Per-Stage Execution Record  
 GAP-01 — Asynchronous Execution of Independent Work  
 
-## Workflow and `radps-context` both:
+### Workflow and `radps-context` both:
 
 These use cases involve both the workflow manager system and `radps-context` components. Responsibilities of each component are indicated below:
 
@@ -237,7 +237,7 @@ These use cases involve both the workflow manager system and `radps-context` com
 * **`radps-context`:** Records information about metadata tags (e.g., `[PAUSE]`) so they can be persisted on datasets.  
 * **Workflow system:** Queries these tags before task execution and actively enforces the logic (e.g., halting the workflow or altering reporting paths).
 
-## `radps-context` and xradio / MSv4: 
+### `radps-context` and xradio / MSv4: 
 
 These use cases will need to be implemented in the `radps-context` package, but it seemed worth pointing out that due to the design of xradio / MSv4, some of the heavy lifting for metadata access, cross-dataset matching, and memory representation may be handled natively by xarray datasets and the MSv4 storage schema. Therefore, `radps-context` may not need to duplicate or manage as much low-level observation metadata as the current pipeline context does; instead, it can act as a lightweight coordinator that directly leverages xradio's built-in, self-describing data structures.
 
