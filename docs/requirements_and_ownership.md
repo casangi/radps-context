@@ -7,7 +7,7 @@ The use cases detailed in “Pipeline Context Use Cases” were derived from the
 1. **Requirement Evaluation:** To identify context capabilities that could then be evaluated for inclusion in `radps-context` to satisfy RADPS requirements.  
 2. **Knowledge Transfer:** To ensure valuable lessons learned from previous pipeline development are carried forward to RADPS when applicable, even if they do not map to a strict requirement.
 
-This document builds off of the current pipeline use cases document by evaluating each use case on two fronts: if each use case satisfies a related RADPS requirement, and if so, which architectural component should be responsible for its implementation. Currently, we are assessing implementation across `radps-context`, the Workflow Orchestration System (currently Prefect), and the xradio/MSv4 layer (with other layers potentially added in the future).
+This document builds off of the current pipeline use cases document by evaluating each use case on two fronts: if each use case satisfies a related RADPS requirement, and if so, which architectural component should be responsible for its implementation. Currently, we are assessing implementation across `radps-context` and the Workflow Orchestration System (currently Prefect), with other layers potentially added in the future.
 
 Based on this evaluation, the use cases are first mapped to RADPS requirements (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated. In Section 3, use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated implementation component.
 
@@ -166,6 +166,8 @@ UC-14 — Aggregate Results from Parallel Workers: This is replaced by asynchron
 
 These use cases do not have any obvious overlap with workflow orchestration functionality. While they may need to interact with the workflow orchestration in some cases, the functionality will need to be satisfied by the `radps-context` package. 
 
+UC-01 — Populate, Access, and Provide Observation Metadata  
+UC-02 — Cross-MS Metadata Matching and Lookup
 UC-03 — Store and Provide Project-Level Metadata  
 UC-04 — Register, Query, and Update Calibration State  
 UC-05 — Manage Imaging State  
@@ -174,6 +176,7 @@ UC-15 — Provide Read-Only State for Reporting
 UC-16 — Support QA Evaluation and Store Quality Assessments  
 UC-18 — Manage Telescope- and Array-Specific State
 UC-19 — Provide State for Product Export  
+GAP-08 — Heterogeneous Dataset Coordination
 
 ### Workflow orchestration layer only 
 
@@ -236,14 +239,6 @@ These use cases involve both the workflow manager system and `radps-context` com
 
 * **`radps-context`:** Records information about metadata tags (e.g., `[PAUSE]`) so they can be persisted on datasets.  
 * **Workflow system:** Queries these tags before task execution and actively enforces the logic (e.g., halting the workflow or altering reporting paths).
-
-### `radps-context` and xradio / MSv4: 
-
-These use cases will need to be implemented in the `radps-context` package, but it seemed worth pointing out that due to the design of xradio / MSv4, some of the heavy lifting for metadata access, cross-dataset matching, and memory representation may be handled natively by xarray datasets and the MSv4 storage schema. Therefore, `radps-context` may not need to duplicate or manage as much low-level observation metadata as the current pipeline context does; instead, it can act as a lightweight coordinator that directly leverages xradio's built-in, self-describing data structures.
-
-UC-01 — Populate, Access, and Provide Observation Metadata  
-UC-02 — Cross-MS Metadata Matching and Lookup
-GAP-08 — Heterogeneous Dataset Coordination
 
 **Referenced documents:**   
 The following documents were used to determine the RADPS use cases relevant to the pipeline context: 
