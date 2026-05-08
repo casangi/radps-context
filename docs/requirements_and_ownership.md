@@ -195,11 +195,6 @@ Workflow orchestration systems maintain detailed per-stage execution records as 
 
 These use cases involve both the workflow manager system and `radps-context` components. Responsibilities of each component are indicated below:
 
-**GAP-01 — Asynchronous Execution of Independent Work**
-* **`radps-context`:** Must ensure two properties: (1) concurrent tasks cannot observe each other's incomplete writes, and (2) a task's outputs are fully written and visible before any task that depends on them is allowed to begin.
-
-* **Workflow system:** Resolves task dependencies and schedules independent tasks for concurrent execution across available workers. Ensures dependent tasks do not begin until all upstream tasks have committed their results to the context.
-
 **UC-06 — Register and Query Produced Image Products**
 
 * **`radps-context`:** Handles the registration and querying of image products.
@@ -224,6 +219,11 @@ These use cases involve both the workflow manager system and `radps-context` com
 
 * **`radps-context`:** Exposes the current processing state and domain-specific artifacts (e.g., registered datasets, calibration tables) for inspection.  
 * **Workflow system:** Exposes task logs, tracebacks, and execution status, and orchestrates the ability to pause or debug a failing node.
+
+**GAP-01 — Asynchronous Execution of Independent Work**
+* **`radps-context`:** Must ensure two properties: (1) concurrent tasks cannot observe each other's incomplete writes, and (2) a task's outputs are fully written and visible before any task that depends on them is allowed to begin.
+
+* **Workflow system:** Resolves task dependencies and schedules independent tasks for concurrent execution across available workers. Ensures dependent tasks do not begin until all upstream tasks have committed their results to the context.
 
 **GAP-02 — Distributed Execution Without a Shared Filesystem**
 
