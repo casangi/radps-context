@@ -67,7 +67,7 @@ RADPS Requirements: ALMA-TR49, ALMA-TR50
 UC-17 — Support Inspection and Debugging  
 RADPS Requirements: ALMA-TR27, ALMA-TR28, ALMA-TR112
 
-UC-18 — Manage Telescope and Array-Specific State  
+UC-18 — Manage Telescope- and Array-Specific State  
 RADPS Requirements: ALMA-TR07.1, ALMA-TR07.2, ALMA-TR08, ALMA-TR05, ALMA-TR03
 
 UC-19 — Provide State for Product Export  
@@ -177,7 +177,7 @@ UC-05 — Manage Imaging State
 UC-10 — Provide a Transient Intra-Stage Workspace  
 UC-15 — Provide Read-Only State for Reporting  
 UC-16 — Support QA Evaluation and Store Quality Assessments  
-UC-18 — Manage Telescope and Array-Specific State  
+UC-18 — Manage Telescope- and Array-Specific State  
 UC-19 — Provide State for Product Export  
 GAP-08 — Heterogeneous Dataset Coordination and Flexible Matching Semantics
 
