@@ -28,7 +28,7 @@ This glossary defines common distributed-systems, data-management, and context-c
 
 - **Event sourcing**: A design where the event log is the primary source-of-truth, and current state is derived from replaying events (often with materialized views).
 
-- **Event subscription / webhook**: A push-style integration mechanism where external consumers receive selected lifecycle events or summary notifications. Delivery must be retryable and idempotent.
+- **Event subscription / push notification**: A push-style integration mechanism where external consumers receive selected lifecycle events or summary notifications. Delivery must be retryable and idempotent.
 
 - **Execution-control tag**: Persisted metadata on a dataset, stage, or run that the workflow orchestration layer interprets to alter execution behavior (for example pause, skip, or divert processing).
 
@@ -42,7 +42,7 @@ This glossary defines common distributed-systems, data-management, and context-c
   - **Read-only snapshot**: a consistent view of data at a defined boundary (for example, “as of checkpoint X”).
   - **Snapshot isolation**: a common isolation model where each transaction reads from a snapshot and writes commit if no conflicting writes occurred.
 
-- **Language-neutral API**: A stable, typed contract (for example REST, gRPC, or another service interface) that allows clients in any supported language to query/update context state without depending on storage layout or Python objects.
+- **Language-neutral API**: A stable, typed contract that allows clients in any supported language to query or update context state without depending on storage layout or Python objects.
 
 - **Ledger (run ledger)**: The durable run-scoped record of plans, nodes, attempts, checkpoints, subscriptions, and other state transitions.
 
@@ -50,7 +50,7 @@ This glossary defines common distributed-systems, data-management, and context-c
 
 - **Matching semantics**: The rules used to decide when metadata elements across datasets correspond to one another. Common modes include **exact** matching and **overlap/partial** matching.
 
-- **MeasurementSet v4 (MSv4)**: The next-generation MeasurementSet representation targeted for RADPS. The RADPS observation catalog is assumed to be MSv4-centric even when inputs begin as ASDM or another archive format.
+- **MeasurementSet v4 (MSv4)**: The next-generation MeasurementSet representation targeted for RADPS. The RADPS observation catalog may be normalized around this representation even when inputs begin as ASDM or another archive format.
 
 - **Middleware/API layer**: The service boundary that exposes typed context operations, schema/version negotiation, authorization, and error handling to internal and external clients.
 
@@ -66,7 +66,7 @@ This glossary defines common distributed-systems, data-management, and context-c
 
 - **Schema’d / typed record**: A structured record with explicit fields and versions (as opposed to untyped “bags” like free-form dictionaries).
 
-- **Stable identifier**: A durable ID whose meaning does not depend on process memory or local path layout (for example `run_id`, `dataset_id`, or `artifact_id`).
+- **Stable identifier**: A durable identifier whose meaning does not depend on process memory or local path layout (for example a run identifier, dataset identifier, or artifact identifier).
 
 - **Streaming / incremental processing**: The ability to register new data into an active run and produce versioned downstream state/results without restarting the pipeline from scratch.
 
@@ -75,8 +75,6 @@ This glossary defines common distributed-systems, data-management, and context-c
 - **Tombstone / tombstoning**: Recording that an artifact/state was intentionally removed or invalidated (often without immediately deleting underlying storage), preserving audit and preventing dangling references.
 
 - **Workflow orchestration layer / system**: The component that plans, schedules, and coordinates execution of pipeline tasks. In RADPS it owns task-graph progression, retries, and enforcement of execution-control decisions, while `radps-context` persists the durable state those decisions depend on.
-
-- **xradio**: The xarray-based data access layer expected to expose MSv4-centric observation metadata and storage structures to RADPS. `radps-context` is expected to coordinate with, rather than duplicate, these self-describing dataset representations where possible.
 
 ## Legacy Pipeline terms (used in current Pipeline context docs)
 
@@ -116,8 +114,8 @@ This glossary defines common distributed-systems, data-management, and context-c
 
 - **Task**: A registered unit of work (often class-based) invoked by the CLI wrappers or recipe execution; typically produces a Results object.
 
-- **Timetracker**: A timing/telemetry record (often stored as a `*.timetracker` SQLite DB) used to detect abnormal exits and summarize stage timings.
+- **Timetracker**: A timing/telemetry record (often stored as a lightweight database file) used to detect abnormal exits and summarize stage timings.
 
 - **Weblog**: The human-readable HTML report product generated from context + results (and often re-rendered stage-by-stage during execution).
 
-- **`pipelineqa` / QA plugins**: The legacy QA framework where plugins read context + a task’s results to emit QA scores/diagnostics. QA handlers are typically read-only with respect to context state.
+- **QA plugins (legacy Pipeline)**: The legacy QA framework where plugins read context + a task’s results to emit QA scores/diagnostics. QA handlers are typically read-only with respect to context state.

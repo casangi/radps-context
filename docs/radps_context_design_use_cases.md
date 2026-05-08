@@ -17,7 +17,10 @@ See also:
 - [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) (source Pipeline UCs)
 - [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
 
-RADPS UC<number>: <title>
+RADPS-UC<number>: <title>
+
+    Current Pipeline Cross-References:
+        Related current Pipeline use cases and GAPs that this RADPS use case refines or replaces.
 
     Relevant Stakeholders
         The relevant stakeholders for this use case.
@@ -53,10 +56,13 @@ These are first-draft entries focused on **context** (run ledger + artifact regi
 Notes on numbering:
 
 - These use `UC*` numbering for easy cross-reference.
-- They are **RADPS context use cases**; when citing them next to Pipeline UCs, refer to them as “RADPS UC#”.
+- They are **RADPS context use cases**; when citing them next to Pipeline UCs, refer to them as “RADPS-UC#”.
 - The requirement trace in [docs/requirements_and_ownership.md](requirements_and_ownership.md) distinguishes workflow-only responsibilities from shared workflow/context responsibilities. This document only expands the use cases that require `radps-context` behavior; workflow-only items such as current UC-07, UC-08, and GAP-01 are intentionally referenced but not modeled here as standalone context use cases.
 
-RADPS UC1: Initialize or Load a Run Context
+RADPS-UC1: Initialize or Load a Run Context
+
+    Current Pipeline Cross-References:
+        UC-03, UC-11, UC-12, UC-19.
 
     Relevant Stakeholders
         Operations, pipeline developers, QA reviewers, runtime services (planner/executor/reporting).
@@ -71,7 +77,7 @@ RADPS UC1: Initialize or Load a Run Context
     Preconditions:
         Inputs are identified (dataset IDs/paths); caller is authorized to create or access the run.
     Postconditions / Outputs:
-        A `run_id` exists with initial run metadata; a “current plan” slot is empty or points to an existing `plan_id`. Run-level location configuration (working/products/report roots) is recorded, either as explicit paths or as artifact-registry location policies.
+        A run record exists with initial metadata; a current-plan reference is empty or points to an existing plan record. Run-level location configuration (working/products/report roots) is recorded, either as explicit paths or as artifact-registry location policies.
     Context Data / Artifacts:
         Writes run metadata (domain, policy bundle, versions, timestamps, orchestration driver identity); records run-level location configuration (output/report/products roots or artifact-location policies). May accept driver-injected metadata (recipe/procedure name, project IDs, performance parameters).
     Transaction / Idempotency Notes:
@@ -81,12 +87,15 @@ RADPS UC1: Initialize or Load a Run Context
     Basic Flow:
         1. Actor submits create/load request with minimal metadata (including driver identity and location configuration).
         2. Context Store validates authorization and required fields.
-        3. Context Store creates the run record (or returns the existing run) and returns `run_id`.
+        3. Context Store creates the run record (or returns the existing run) and returns the run reference.
     Alternative Flows (optional):
         - Load fails because the run/version is unsupported; system returns a structured incompatibility error.
         - Driver submits additional metadata (project IDs, performance parameters) as part of creation; Context Store records these as immutable-after-init run metadata.
 
-RADPS UC2: Persist a Plan Representation (Plan Registration)
+RADPS-UC2: Persist a Plan Representation (Plan Registration)
+
+    Current Pipeline Cross-References:
+        UC-07, UC-08, UC-12.
 
     Relevant Stakeholders
         Planner developers, operations (reproducibility), reporting/audit consumers.
@@ -99,23 +108,26 @@ RADPS UC2: Persist a Plan Representation (Plan Registration)
     Goals:
         Record the planned computation structure so execution and reporting can be tied back to an explicit plan.
     Preconditions:
-        `run_id` exists; planner has produced a plan structure (DAG/graph) and policy provenance.
+        A run record exists; planner has produced a plan structure (DAG/graph) and policy provenance.
     Postconditions / Outputs:
-        A `plan_id` exists and is associated to `run_id`; nodes have stable `node_id` values.
+        A plan record exists and is associated to the run; nodes have stable identifiers.
     Context Data / Artifacts:
         Stores plan definition, partitioning keys, planner version, policy bundle hash, and user-supplied parameters.
     Transaction / Idempotency Notes:
-        Register-plan must be atomic; plan updates should be append-only (new `plan_id`) rather than in-place mutation.
+        Register-plan must be atomic; plan updates should be append-only (new plan revision) rather than in-place mutation.
     Observability / Audit:
         Record a PlanRegistered event with plan provenance.
     Basic Flow:
         1. Planner submits plan definition to Context Store.
         2. Context Store validates schema and links plan to run.
-        3. Context Store returns `plan_id` and `node_id` map.
+        3. Context Store returns the plan reference and node identifier map.
     Alternative Flows (optional):
         - Validation fails (schema/version mismatch); plan is rejected with a clear error.
 
-RADPS UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start/Finish/Retry)
+RADPS-UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start/Finish/Retry)
+
+    Current Pipeline Cross-References:
+        UC-07, UC-08, UC-15, UC-17, UC-19.
 
     Relevant Stakeholders
         Operations (recoverability), QA/review, developers (debugging), reporting, regression harnesses.
@@ -128,9 +140,9 @@ RADPS UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start
     Goals:
         Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for progress tracking, reporting, QA, debugging, and export (Pipeline UC-07, UC-08, UC-15, UC-17, UC-19). Node ordering within the DAG replaces legacy stage numbering and must remain coherent across resumes.
     Preconditions:
-        `run_id` and `plan_id` exist; `node_id` exists in the plan; worker is authorized to update run state.
+        A run record and plan record exist; the node exists in the plan; worker is authorized to update run state.
     Postconditions / Outputs:
-        Attempt record(s) exist with `attempt_id`; node status transitions are recorded; failures have structured error summaries. The run ledger exposes an ordered execution timeline (by node/attempt completion) that consumers can traverse for reporting and debugging.
+        Attempt record(s) exist with stable attempt identifiers; node status transitions are recorded; failures have structured error summaries. The run ledger exposes an ordered execution timeline that consumers can traverse for reporting and debugging.
     Context Data / Artifacts:
         Writes attempt state, timestamps, worker identity, tracebacks, QA outcome summaries, and optional resource summaries.
     Transaction / Idempotency Notes:
@@ -139,15 +151,18 @@ RADPS UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start
         Emit NodeAttemptStarted/Finished events; attach tracebacks and error codes where applicable. The execution history itself serves as the primary progress-tracking and debugging interface.
     Basic Flow:
         1. Worker requests to start an attempt for a node.
-        2. Context Store creates `attempt_id` and marks attempt RUNNING.
+        2. Context Store creates the attempt record and marks it in progress.
         3. Worker completes work and submits completion status and summary.
-        4. Context Store marks attempt SUCCEEDED/FAILED, updates node-level derived status, and appends to the ordered execution history.
+        4. Context Store marks the attempt succeeded or failed, updates node-level derived status, and appends to the ordered execution history.
     Alternative Flows (optional):
-        - Worker crashes mid-attempt; Context Store detects lost heartbeats and marks attempt LOST/FAILED for retry.
+        - Worker crashes mid-attempt; Context Store detects lost heartbeats and marks the attempt as no longer active so it can be retried.
         - Duplicate completion arrives; Context Store ignores it (idempotent) or returns existing completion.
         - Regression harness queries the execution history to validate deterministic outputs, durations, and failure signals across runs.
 
-RADPS UC4: Register Produced Artifacts with Lineage
+RADPS-UC4: Register Produced Artifacts with Lineage
+
+    Current Pipeline Cross-References:
+        UC-06, UC-19, GAP-02.
 
     Relevant Stakeholders
         Operations (delivery/retention), QA, reporting, reproducibility.
@@ -158,11 +173,11 @@ RADPS UC4: Register Produced Artifacts with Lineage
     Actors:
         Worker, Context Store (artifact registry).
     Goals:
-        Make artifacts discoverable and traceable: what was produced, by whom, from what inputs, and where it lives across local, shared-filesystem, or object-store backends.
+        Make artifacts discoverable and traceable: what was produced, by whom, from what inputs, and where it lives across supported storage backends.
     Preconditions:
-        Artifact data has been written to durable storage (local/shared/object store) and is readable.
+        Artifact data has been written to durable storage and is readable.
     Postconditions / Outputs:
-        `artifact_id` exists with type, lineage, and one or more locations; artifact is linked to producing `attempt_id`.
+        An artifact record exists with type, lineage, and one or more locations; the artifact is linked to the producing attempt.
     Context Data / Artifacts:
         Writes artifact metadata, optional hashes/checksums, retention hints, and one or more storage-agnostic location references/access policies.
     Transaction / Idempotency Notes:
@@ -177,7 +192,10 @@ RADPS UC4: Register Produced Artifacts with Lineage
         - Artifact is first written to worker-local scratch; registration is deferred or recorded as non-exportable until durable storage is confirmed.
         - Location becomes unavailable after write; artifact registration fails and the node attempt is marked failed.
 
-RADPS UC5: Create and Validate an Explicit Checkpoint
+RADPS-UC5: Create and Validate an Explicit Checkpoint
+
+    Current Pipeline Cross-References:
+        UC-12, GAP-04.
 
     Relevant Stakeholders
         Operations, developers (safe restart), cost control.
@@ -190,9 +208,9 @@ RADPS UC5: Create and Validate an Explicit Checkpoint
     Goals:
         Define a durable “safe restart point” that references a closed set of artifacts/state.
     Preconditions:
-        Required upstream nodes are SUCCEEDED; required artifacts are registered.
+        Required upstream nodes have completed successfully; required artifacts are registered.
     Postconditions / Outputs:
-        A checkpoint record exists for `run_id` and references the required node states and artifacts.
+        A checkpoint record exists for the run and references the required node states and artifacts.
     Context Data / Artifacts:
         Writes checkpoint metadata (scope, node set, artifact set, plan revision).
     Transaction / Idempotency Notes:
@@ -205,7 +223,10 @@ RADPS UC5: Create and Validate an Explicit Checkpoint
     Alternative Flows (optional):
         - Prerequisites missing; checkpoint is rejected with a list of missing nodes/artifacts.
 
-RADPS UC6: Resume or Partial Re-run with Downstream Invalidation
+RADPS-UC6: Resume or Partial Re-run with Downstream Invalidation
+
+    Current Pipeline Cross-References:
+        UC-12, GAP-04, GAP-06.
 
     Relevant Stakeholders
         Operations (recovery), QA, developers.
@@ -218,7 +239,7 @@ RADPS UC6: Resume or Partial Re-run with Downstream Invalidation
     Goals:
         Resume a run safely from a checkpoint or re-run a subgraph/partition while maintaining provenance and explicit dependency/invalidation semantics.
     Preconditions:
-        `run_id` exists; a checkpoint exists or a rerun scope is defined; caller is authorized.
+        A run record exists; a checkpoint exists or a rerun scope is defined; caller is authorized.
     Postconditions / Outputs:
         Selected nodes are marked runnable; downstream nodes/artifacts are marked stale/tombstoned as appropriate; new attempts are tracked.
     Context Data / Artifacts:
@@ -235,7 +256,10 @@ RADPS UC6: Resume or Partial Re-run with Downstream Invalidation
         - Resume fails due to schema/version incompatibility; system returns a structured incompatibility error.
         - Requested rerun scope overlaps active work; system rejects the rerun or requires cancellation/serialization before proceeding.
 
-RADPS UC7: Operator Annotation and Controlled Overrides
+RADPS-UC7: Operator Annotation and Controlled Overrides
+
+    Current Pipeline Cross-References:
+        UC-17, GAP-07, GAP-08.
 
     Relevant Stakeholders
         Operations, QA, science support, audit/provenance consumers.
@@ -248,7 +272,7 @@ RADPS UC7: Operator Annotation and Controlled Overrides
     Goals:
         Record human decisions (notes, approvals, override parameters) as durable, auditable context state.
     Preconditions:
-        `run_id` exists; actor is authorized; the target (run/node/artifact) exists.
+        A run record exists; actor is authorized; the target run, node, or artifact exists.
     Postconditions / Outputs:
         Annotation/override records exist and are linked to targets; subsequent reporting includes them.
     Context Data / Artifacts:
@@ -263,7 +287,10 @@ RADPS UC7: Operator Annotation and Controlled Overrides
     Alternative Flows (optional):
         - Permission denied; request is rejected and logged.
 
-RADPS UC8: Export Provenance Manifest / Report as an Artifact
+RADPS-UC8: Export Provenance Manifest / Report as an Artifact
+
+    Current Pipeline Cross-References:
+        UC-15, UC-19, GAP-03, GAP-05.
 
     Relevant Stakeholders
         Operations (delivery), QA, archive/consumers.
@@ -292,7 +319,10 @@ RADPS UC8: Export Provenance Manifest / Report as an Artifact
     Alternative Flows (optional):
         - Missing required records; reporting fails with a clear list of missing context elements.
 
-RADPS UC9: Artifact Retention and Tombstoning (Safe Cleanup)
+RADPS-UC9: Artifact Retention and Tombstoning (Safe Cleanup)
+
+    Current Pipeline Cross-References:
+        UC-12, UC-19.
 
     Relevant Stakeholders
         Operations (storage control), audit/provenance consumers.
@@ -321,7 +351,10 @@ RADPS UC9: Artifact Retention and Tombstoning (Safe Cleanup)
     Alternative Flows (optional):
         - Artifact is on hold due to an active investigation; cleanup is skipped and hold reason recorded.
 
-RADPS UC10: Query Dataset / Observation Catalog (Read-Only View)
+RADPS-UC10: Query Dataset / Observation Catalog (Read-Only View)
+
+    Current Pipeline Cross-References:
+        UC-01, UC-02, GAP-08.
 
     Relevant Stakeholders
         Pipeline algorithms, heuristics, QA, reporting.
@@ -332,9 +365,9 @@ RADPS UC10: Query Dataset / Observation Catalog (Read-Only View)
     Actors:
         Worker, QA/reporting service, Context Store.
     Goals:
-        Provide fast, consistent access to observation metadata (MSv4 inventory, fields, SPWs, scans, data-type metadata, and cross-dataset identity/matching records) required by tasks and reporting. This is the read-only catalog surface underlying more specialized matching workflows such as UC22.
+        Provide fast, consistent access to observation metadata (catalog inventory, fields, SPWs, scans, data-type metadata, and cross-dataset identity/matching records) required by tasks and reporting. This is the read-only catalog surface underlying more specialized matching workflows such as UC22.
     Preconditions:
-        `run_id` exists; dataset inventory has been registered in context.
+        A run record exists; dataset inventory has been registered in context.
     Postconditions / Outputs:
         No new durable state is required; consumers obtain a consistent view of metadata.
     Context Data / Artifacts:
@@ -349,7 +382,10 @@ RADPS UC10: Query Dataset / Observation Catalog (Read-Only View)
     Alternative Flows (optional):
         - Requested scope not found; return a structured “unknown dataset/partition” error.
 
-RADPS UC11: Apply Transactional Calibration State Update
+RADPS-UC11: Apply Transactional Calibration State Update
+
+    Current Pipeline Cross-References:
+        UC-04.
 
     Relevant Stakeholders
         Calibration tasks, operations (resume correctness), QA.
@@ -360,7 +396,7 @@ RADPS UC11: Apply Transactional Calibration State Update
     Actors:
         Worker, Context Store.
     Goals:
-        Atomically record a set of calibration state changes produced by a task (the callibrary analogue).
+        Atomically record a set of calibration state changes produced by a task.
     Preconditions:
         Producing attempt exists; calibration artifacts (e.g., tables) are written and registered (or will be registered in the same transaction if supported).
     Postconditions / Outputs:
@@ -377,7 +413,10 @@ RADPS UC11: Apply Transactional Calibration State Update
     Alternative Flows (optional):
         - Conflict detected with a concurrent incompatible update; patch is rejected and worker must retry with updated base version.
 
-RADPS UC12: Update Imaging State (Schema’d Scratch Pad)
+RADPS-UC12: Update Imaging State (Schema’d Scratch Pad)
+
+    Current Pipeline Cross-References:
+        UC-05.
 
     Relevant Stakeholders
         Imaging tasks/heuristics, operations (reproducibility), reporting.
@@ -390,7 +429,7 @@ RADPS UC12: Update Imaging State (Schema’d Scratch Pad)
     Goals:
         Replace ad-hoc imaging attributes with a versioned, typed imaging state document that supports partition-scoped updates.
     Preconditions:
-        `run_id` exists; plan node scope identifies which imaging partition is being updated (field/spw/scan or equivalent).
+        A run record exists; plan node scope identifies which imaging partition is being updated (field/spw/scan or equivalent).
     Postconditions / Outputs:
         Imaging state is updated for the intended scope; downstream readers can resolve the correct version.
     Context Data / Artifacts:
@@ -405,7 +444,10 @@ RADPS UC12: Update Imaging State (Schema’d Scratch Pad)
     Alternative Flows (optional):
         - Schema/version mismatch; update rejected with required migration/version info.
 
-RADPS UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
+RADPS-UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
+
+    Current Pipeline Cross-References:
+        UC-15, UC-16, UC-17, UC-19.
 
     Relevant Stakeholders
         QA, weblog/report generation, developers, CI/regression harnesses, operations.
@@ -428,13 +470,16 @@ RADPS UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
     Observability / Audit:
         Record snapshot boundary identifiers used by the report or inspection session.
     Basic Flow:
-        1. Service requests a snapshot for `run_id` at a boundary.
+        1. Service requests a snapshot for the run at a boundary.
         2. Context Store serves a consistent view for queries.
     Alternative Flows (optional):
         - Boundary not available (no checkpoint); service may request “latest committed” with caveats recorded.
         - Debugging/CI tool queries snapshot to compare outputs across runs or validate expected artifacts and QA outcomes.
 
-RADPS UC14: Resolve Named Outputs Instead of Stage-Index Walking
+RADPS-UC14: Resolve Named Outputs Instead of Stage-Index Walking
+
+    Current Pipeline Cross-References:
+        UC-09.
 
     Relevant Stakeholders
         Task developers, operations (correct reruns), performance.
@@ -462,7 +507,10 @@ RADPS UC14: Resolve Named Outputs Instead of Stage-Index Walking
     Alternative Flows (optional):
         - Output not found; consumer fails fast with a structured missing-dependency error.
 
-RADPS UC15: Append-Only Event Log / Patch Log (Audit + Replay)
+RADPS-UC15: Append-Only Event Log / Patch Log (Audit + Replay)
+
+    Current Pipeline Cross-References:
+        UC-08, UC-17, GAP-05.
 
     Relevant Stakeholders
         Operations, QA, developers (debugging), external integrations, provenance/audit consumers.
@@ -475,15 +523,15 @@ RADPS UC15: Append-Only Event Log / Patch Log (Audit + Replay)
     Goals:
         Maintain an append-only record of significant lifecycle events and/or state patches so that run evolution is auditable and (where feasible) replayable.
     Preconditions:
-        `run_id` exists; writer is authorized.
+        A run record exists; writer is authorized.
     Postconditions / Outputs:
-        Event records exist with stable IDs and ordering; events are linked to `plan_id`/`node_id`/`attempt_id`/`artifact_id` where applicable.
+        Event records exist with stable identifiers and ordering; events are linked to the relevant plan, node, attempt, or artifact records where applicable.
     Context Data / Artifacts:
         Writes event records; may include compact patch payloads or references to patch artifacts.
     Transaction / Idempotency Notes:
         Appends must be ACID; producers must be able to retry safely without duplicating logical events (idempotency keys).
     Observability / Audit:
-        Events are the audit trail; provide query-by-run, query-by-node, and time-bounded queries.
+        Events are the audit trail; provide queries by run, by node, and by time range.
     Basic Flow:
         1. Producer submits an event (and optional patch reference) with an idempotency key.
         2. Context Store appends the event and returns an event ID.
@@ -491,7 +539,10 @@ RADPS UC15: Append-Only Event Log / Patch Log (Audit + Replay)
     Alternative Flows (optional):
         - Duplicate event submission returns the existing event ID.
 
-RADPS UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
+RADPS-UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
+
+    Current Pipeline Cross-References:
+        UC-18.
 
     Relevant Stakeholders
         Domain teams (ngVLA, WSU), pipeline algorithm developers, operations.
@@ -520,7 +571,10 @@ RADPS UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
     Alternative Flows (optional):
         - Unknown extension schema/version; update is rejected with a structured error.
 
-RADPS UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Execution)
+RADPS-UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Execution)
+
+    Current Pipeline Cross-References:
+        UC-09, UC-13, UC-14, GAP-01, GAP-02.
 
     Relevant Stakeholders
         Executor/workers, operations (scalability/reliability), developers.
@@ -531,11 +585,11 @@ RADPS UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Executi
     Actors:
         Executor/worker, Context Store.
     Goals:
-        Allow workers to read a consistent snapshot of required context state while ensuring all writes return through ACID transactions (no “forked pickles” as system-of-record), including asynchronous/overlapping execution of independent work across partitions.
+        Allow workers to read a consistent snapshot of required context state while ensuring all writes return through ACID transactions rather than worker-local serialized state, including asynchronous and overlapping execution of independent work across partitions.
     Preconditions:
-        `run_id` exists; a snapshot boundary exists (checkpoint, plan revision boundary, or latest-committed); worker is authorized.
+        A run record exists; a snapshot boundary exists (checkpoint, plan revision boundary, or latest committed state); worker is authorized.
     Postconditions / Outputs:
-        Worker obtains a snapshot token/identifier; all updates are committed as transactional patches linked to `attempt_id`.
+        Worker obtains a snapshot token or equivalent boundary reference; all updates are committed as transactional patches linked to the producing attempt.
     Context Data / Artifacts:
         Reads snapshot views of ledger/catalog/state; writes attempt state, artifacts, and patches.
     Transaction / Idempotency Notes:
@@ -550,7 +604,10 @@ RADPS UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Executi
     Alternative Flows (optional):
         - Write conflict detected; worker must refresh snapshot and retry with a new base version.
 
-RADPS UC18: Publish Run State to External Systems
+RADPS-UC18: Publish Run State to External Systems
+
+    Current Pipeline Cross-References:
+        UC-07, UC-15, UC-19, GAP-05.
 
     Relevant Stakeholders
         QA dashboards, monitoring tools, archive ingest systems, schedulers, operators.
@@ -561,9 +618,9 @@ RADPS UC18: Publish Run State to External Systems
     Actors:
         External consumer/service, Context Store, notification dispatcher.
     Goals:
-        Provide timely, stable access to current processing state, lifecycle events, and summary views without requiring consumers to scrape product files or worker-local storage. The design must support both pull-style queries and push-style subscriptions/webhooks for selected lifecycle events.
+        Provide timely, stable access to current processing state, lifecycle events, and summary views without requiring consumers to scrape product files or worker-local storage. The design must support both pull-style queries and push-style subscriptions for selected lifecycle events.
     Preconditions:
-        `run_id` exists; consumer or subscription is authorized; the requested summary/event schema version is supported.
+        A run record exists; consumer or subscription is authorized; the requested summary or event schema version is supported.
     Postconditions / Outputs:
         External consumers can query current state or receive subscribed notifications; delivery attempts and subscription state are recorded durably.
     Context Data / Artifacts:
@@ -580,7 +637,10 @@ RADPS UC18: Publish Run State to External Systems
         - Consumer requests an unsupported schema version; request is rejected with negotiation details.
         - Delivery endpoint is unavailable; dispatcher retries per policy and records failure state without losing the event.
 
-RADPS UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
+RADPS-UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
+
+    Current Pipeline Cross-References:
+        UC-08, UC-17, UC-19, GAP-03.
 
     Relevant Stakeholders
         Pipeline operators, auditors, regression harnesses, reproducibility tooling.
@@ -591,11 +651,11 @@ RADPS UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
     Actors:
         Worker, reporting service, Context Store.
     Goals:
-        Capture the immutable provenance required to reproduce or audit a run: exact input identities/hashes, parameters, software versions, execution environment, hardware, scheduler/workload-manager details, and lineage links for each attempt and exported product.
+        Capture the immutable provenance required to reproduce or audit a run: exact input identities/hashes, parameters, software versions, execution environment, hardware, execution-control details, and lineage links for each attempt and exported product.
     Preconditions:
         An attempt or export operation exists; input identifiers are available for hashing/fingerprinting; environment metadata is available.
     Postconditions / Outputs:
-        An immutable provenance record exists and is linked to the relevant `attempt_id`, `artifact_id`, or exported manifest.
+        An immutable provenance record exists and is linked to the relevant attempt, artifact, or exported manifest.
     Context Data / Artifacts:
         Writes provenance envelopes, input hashes/fingerprints, environment records, and deterministic-execution annotations.
     Transaction / Idempotency Notes:
@@ -610,10 +670,13 @@ RADPS UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
         - Some hashes are unavailable at completion time; system records partial provenance with explicit missing-field markers and may block checkpoint/export per policy.
         - Environment details change mid-run; new attempts record new environment versions rather than mutating prior provenance.
 
-RADPS UC20: Serve a Language-Neutral Context API
+RADPS-UC20: Serve a Language-Neutral Context API
+
+    Current Pipeline Cross-References:
+        UC-15, UC-19, GAP-05.
 
     Relevant Stakeholders
-        Non-Python clients (C++, Julia, JavaScript dashboards), external tools, pipeline services.
+        Non-Python clients, external tools, pipeline services.
     Frequency:
         High.
     Importance:
@@ -640,7 +703,10 @@ RADPS UC20: Serve a Language-Neutral Context API
         - Requested API version is unsupported; service returns compatible versions or upgrade guidance.
         - Client requests an operation not exposed by the public contract; service rejects it with a typed capability error.
 
-RADPS UC21: Register Incremental Dataset Updates and Versioned Results
+RADPS-UC21: Register Incremental Dataset Updates and Versioned Results
+
+    Current Pipeline Cross-References:
+        UC-01, UC-12, GAP-04.
 
     Relevant Stakeholders
         Data ingest systems, workflow engine, incremental processing tasks, operators.
@@ -653,7 +719,7 @@ RADPS UC21: Register Incremental Dataset Updates and Versioned Results
     Goals:
         Allow new data to be registered into an active run/session, trigger incremental processing, and ensure new outputs are versioned rather than overwriting prior results.
     Preconditions:
-        `run_id` exists; incremental-ingest policy allows new data; incoming data is identifiable and scoped to an existing or new session partition.
+        A run record exists; incremental-ingest policy allows new data; incoming data is identifiable and scoped to an existing or new session partition.
     Postconditions / Outputs:
         Dataset catalog contains a new dataset/version record; affected plan nodes or partitions are marked runnable; newly produced artifacts/results receive new version identifiers.
     Context Data / Artifacts:
@@ -670,7 +736,10 @@ RADPS UC21: Register Incremental Dataset Updates and Versioned Results
         - Incoming data conflicts with an existing immutable dataset version; system rejects it or records it as a separate branch/version per policy.
         - Incremental registration arrives while dependent work is running; system serializes, branches, or defers the update according to policy.
 
-RADPS UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
+RADPS-UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
+
+    Current Pipeline Cross-References:
+        UC-02, UC-18, GAP-08.
 
     Relevant Stakeholders
         Calibration tasks, imaging tasks, heuristics, pipeline operators.
@@ -700,7 +769,10 @@ RADPS UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
         - Multiple candidate matches remain after policy evaluation; service returns an ambiguity error or candidate set requiring heuristic/user choice.
         - An override conflicts with an existing locked mapping; service rejects it unless an authorized replacement workflow is used.
 
-RADPS UC23: Initialize Context from Intermediate Archival State
+RADPS-UC23: Initialize Context from Intermediate Archival State
+
+    Current Pipeline Cross-References:
+        UC-12, GAP-06.
 
     Relevant Stakeholders
         Pipeline operators, archive ingest systems, workflow engine, operations.
@@ -731,7 +803,10 @@ RADPS UC23: Initialize Context from Intermediate Archival State
         - Imported products are insufficient to construct a valid boundary; initialization is rejected with a list of missing state elements.
         - Imported records conflict with immutable run state already present; system rejects the import or requires a separate branch/run per policy.
 
-RADPS UC24: Persist Execution-Control Tags for Workflow Decisions
+RADPS-UC24: Persist Execution-Control Tags for Workflow Decisions
+
+    Current Pipeline Cross-References:
+        GAP-07.
 
     Relevant Stakeholders
         Pipeline operators, workflow orchestration services, heuristics, audit/provenance consumers.
