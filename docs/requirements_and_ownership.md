@@ -1,7 +1,5 @@
 # Context Use cases mapping and RADPS module ownership 
 
-**Current Context Use Cases and RADPS requirements:**
-
 The use cases detailed in “Pipeline Context Use Cases” were derived from the current pipeline context. They were compiled to capture existing system needs and serve two primary purposes:
 
 1. **Requirement Evaluation:** To identify context capabilities that could then be evaluated for inclusion in `radps-context` to satisfy RADPS requirements.  
@@ -9,9 +7,14 @@ The use cases detailed in “Pipeline Context Use Cases” were derived from the
 
 This document builds off of the current pipeline use cases document by evaluating each use case on two fronts: if each use case satisfies a related RADPS requirement, and if so, which architectural component should be responsible for its implementation. Currently, we are assessing implementation across `radps-context` and the Workflow Orchestration System (currently Prefect), with other layers potentially added in the future.
 
-Based on this evaluation, the use cases are first mapped to RADPS requirements (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated. In Section 3, use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated implementation component.
+`radps-context` will be a software component of RADPS responsible for maintaining and providing access to pipeline processing state — including observation metadata, calibration state, imaging state, and produced artifacts — throughout the lifecycle of a pipeline run. It is distinct from the workflow orchestration layer, which manages task scheduling and execution.
+
+Based on this evaluation, the use cases are first mapped to RADPS requirements (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated. In Section 3, current context use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated implementation component. For use cases that were not cleanly separable between `radps-context` and the workflow orchestration, the responsibilities of each component are called out.
 
 ## 1. Context UCs and RADPS Requirements
+
+This section lists the RADPS requirements associated with each retained current pipeline use case. 
+Full descriptions of the associated use cases are available in the documents listed at the end of this file.
 
 UC-01 — Populate, Access, and Provide Observation Metadata  
 RADPS Requirements: ALMA-TR48, ALMA-TR107, CSS9018
@@ -64,7 +67,7 @@ RADPS Requirements: ALMA-TR49, ALMA-TR50
 UC-17 — Support Inspection and Debugging  
 RADPS Requirements: ALMA-TR27, ALMA-TR28, ALMA-TR112
 
-UC-18 — Manage Telescope- and Array-Specific State  
+UC-18 — Manage Telescope and Array-Specific State  
 RADPS Requirements: ALMA-TR07.1, ALMA-TR07.2, ALMA-TR08, ALMA-TR05, ALMA-TR03
 
 UC-19 — Provide State for Product Export  
@@ -90,8 +93,8 @@ The following gap use cases capture critical system capabilities that are explic
 | | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, distributed workers |
-| **Summary** | Execution must be possible across nodes that do not share a filesystem. Artifacts, datasets, and processing state must be addressable and accessible without relying on local POSIX paths. |
-| **Postconditions** | Processing completes across distributed nodes with context-hosted references providing the necessary artifact access. |
+| **Summary** | Execution must be possible across nodes that do not share a filesystem. Artifacts, datasets, and processing state must be addressable and accessible without relying on local paths. |
+| **Postconditions** | Processing completes across distributed nodes with references in the context providing the necessary artifact access. |
 | **RADPS requirements** | CSS9002, CSS9030 |
 
 ### GAP-03 — Provenance and Reproducibility
@@ -99,7 +102,7 @@ The following gap use cases capture critical system capabilities that are explic
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, auditor, reproducibility tooling |
-| **Summary** | The context must record sufficient provenance – software versions, exact input identities/hashes, task parameters, per-stage state, hardware and execution-environment details (CPU architecture, node/cluster specification, kernel and MPI versions, workload-manager/scheduler configuration, and relevant scheduler limits) — to enable precise reproduction and audit of past runs. |
+| **Summary** | The context must record sufficient provenance – software versions, task parameters, per-stage state, hardware and execution-environment details (CPU architecture, node/cluster specification, kernel and MPI versions, workload-manager/scheduler configuration, and relevant scheduler limits) — to enable precise reproduction and audit of past runs. |
 | **Postconditions** | Any past processing step can be reproduced or audited using the recorded provenance chain. |
 | **RADPS requirements** | ALMA-TR103, ALMA-TR104, ALMA-TR105 |
 
@@ -136,7 +139,7 @@ The following gap use cases capture critical system capabilities that are explic
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operators, workflow orchestration layer, heuristics |
-| **Summary** | The context must store metadata tags (e.g., `[PAUSE]`, `[SKIP]`) on datasets or pipeline stages that actively influence workflow execution and make the information available to the workflow orchestration system.|
+| **Summary** | The context must store metadata tags (e.g., `[PAUSE]`, `[SKIP]`) associated with datasets or pipeline stages that actively influence workflow execution and make the information available to the workflow orchestration system.|
 | **Invariant** | Tags affecting execution control are durably recorded in the context and remain readable by the workflow layer throughout the pipeline run. |
 | **Postconditions** | Workflow execution is modified in accordance with persisted tags; any tag-driven halts or diversions are recorded alongside their rationale. |
 | **RADPS requirements** | CSS9037 |
@@ -146,7 +149,7 @@ The following gap use cases capture critical system capabilities that are explic
 | | |
 |-------|---------|
 | **Actor(s)** | Data import tasks, calibration tasks, imaging tasks, heuristics, pipeline operators |
-| **Summary** | Calibration tasks, imaging tasks, and heuristics must be able to match and coordinate data across heterogeneous collections of MSes that may not share native SPW numbering, column layout, or other assumptions. Downstream tasks must be able to select the matching semantics appropriate to their use: calibration tasks require exact SPW matching; imaging tasks require partial/overlap matching (including by frequency or channel range) to combine related spectral windows. Matching must extend beyond SPWs to cover fields, sources, and data column layouts. Where automated matching is ambiguous or fails, heuristics or users must be able to supply explicit mapping rules or override the default matching behavior, with overrides recorded alongside their rationale.
+| **Summary** | Calibration tasks, imaging tasks, and heuristics must be able to match and coordinate data across heterogeneous collections of MSes that may not share native SPW numbering, column layout, or other assumptions. Downstream tasks must be able to select the matching semantics appropriate to their use: calibration tasks require exact SPW matching; imaging tasks require partial/overlap matching (including by frequency or channel range) to combine related spectral windows. Matching must extend beyond SPWs to cover fields, sources, and data column layouts. Where automated matching is ambiguous or fails, heuristics or users must be able to supply explicit mapping rules or override the default matching behavior, with overrides recorded alongside their rationale. 
 | **Invariant** | SPW, field, source, and data-column identity are queryable across all registered datasets, regardless of whether those datasets share native numbering or column layout. |
 | **Postconditions** | Downstream tasks can look up applicable SPWs, fields, sources, and data columns across an arbitrary collection of heterogeneous MSes using the appropriate matching semantics for their use, and any user or heuristic overrides are recorded alongside their rationale. |
 | **RADPS requirements** | ALMA-TR07 |
@@ -164,50 +167,57 @@ UC-14 — Aggregate Results from Parallel Workers: This is replaced by asynchron
 
 ### `radps-context` package only
 
-These use cases do not have any obvious overlap with workflow orchestration functionality. While they may need to interact with the workflow orchestration in some cases, the functionality will need to be satisfied by the `radps-context` package. 
+These use cases do not have any obvious overlap with workflow orchestration functionality. While they *interact* with the workflow orchestration in some cases, the functionality will need to be implemented by the `radps-context` package. 
 
 UC-01 — Populate, Access, and Provide Observation Metadata  
-UC-02 — Cross-MS Metadata Matching and Lookup
+UC-02 — Cross-MS Metadata Matching and Lookup  
 UC-03 — Store and Provide Project-Level Metadata  
 UC-04 — Register, Query, and Update Calibration State  
 UC-05 — Manage Imaging State  
 UC-10 — Provide a Transient Intra-Stage Workspace  
 UC-15 — Provide Read-Only State for Reporting  
 UC-16 — Support QA Evaluation and Store Quality Assessments  
-UC-18 — Manage Telescope- and Array-Specific State
+UC-18 — Manage Telescope and Array-Specific State  
 UC-19 — Provide State for Product Export  
-GAP-08 — Heterogeneous Dataset Coordination
+GAP-08 — Heterogeneous Dataset Coordination and Flexible Matching Semantics
 
 ### Workflow orchestration layer only 
 
-All of UC-07, UC-08, and GAP-01 can be fully satisfied by a workflow orchestration system such as Prefect and do not need to be implemented in `radps-context`. 
+UC-07 and UC-08 can be fully satisfied by a workflow orchestration system such as Prefect and do not need to be implemented in `radps-context`. 
 
 UC-07 — Track Current Execution Progress  
+Tracking current execution progress is core functionality of any workflow orchestration system.
+
 UC-08 — Preserve Per-Stage Execution Record  
-GAP-01 — Asynchronous Execution of Independent Work  
+Workflow orchestration systems maintain detailed per-stage execution records as a standard capability. 
 
 ### Workflow and `radps-context` both:
 
 These use cases involve both the workflow manager system and `radps-context` components. Responsibilities of each component are indicated below:
 
+**GAP-01 — Asynchronous Execution of Independent Work**
+* **`radps-context`:** Must ensure two properties: (1) concurrent tasks cannot observe each other's incomplete writes, and (2) a task's outputs are fully written and visible before any task that depends on them is allowed to begin.
+
+* **Workflow system:** Resolves task dependencies and schedules independent tasks for concurrent execution across available workers. Ensures dependent tasks do not begin until all upstream tasks have committed their results to the context.
+
 **UC-06 — Register and Query Produced Image Products**
 
-* **`radps-context`:** Handles the registration and querying of image products.  
+* **`radps-context`:** Handles the registration and querying of image products.
 * **Workflow system:** Image products themselves might be tracked as part of the artifact system.
 
 **UC-09 — Propagate Task Outputs to Downstream Tasks**
 
-* **`radps-context`:** Makes domain states and parameters available to downstream tasks.  
-* **Workflow system:** Takes care of literally passing task outputs downstream to the relevant tasks that need them (e.g., via task results/futures).
+* **`radps-context`:** Makes domain states and parameters available to downstream tasks.
+* **Workflow system:** Takes care of literally passing task outputs downstream to the relevant tasks that need them (e.g., via task results or futures).
 
 **UC-11 — Support Multiple Orchestration Drivers**
 
-* **`radps-context`:** Needs to be able to be instantiated and remain consistent across multiple different drivers.  
-* **Workflow system:** Will likely be what is actually “driving” the various orchestration drivers and executing the pipeline tasks.
+* **`radps-context`:** Needs to be able to be instantiated and remain consistent across multiple different drivers.
+* **Workflow system:** Will likely be what is actually “driving” the various orchestration drivers and kicking off execution of the pipeline tasks.
 
 **UC-12 — Save and Restore a Processing Session**
 
-* **`radps-context`:** Needs to provide the mechanism to save and restore the domain state.  
+* **`radps-context`:** Needs to provide the mechanism to save and restore the domain state.
 * **Workflow system:** Manages the actual resumption of the execution graph, tracking which tasks need to be restarted and picking up the execution flow from the restored point.
 
 **UC-17 — Support Inspection and Debugging**
@@ -215,33 +225,38 @@ These use cases involve both the workflow manager system and `radps-context` com
 * **`radps-context`:** Exposes the current processing state and domain-specific artifacts (e.g., registered datasets, calibration tables) for inspection.  
 * **Workflow system:** Exposes task logs, tracebacks, and execution status, and orchestrates the ability to pause or debug a failing node.
 
+**GAP-02 — Distributed Execution Without a Shared Filesystem**
+
+* **`radps-context`:** Stores references to the artifacts in a location-independent way. 
+* **Workflow system:** Routes tasks to workers and, in coordination with the underlying infrastructure, ensures the execution environment can resolve required artifact references before a task begins.
+
 **GAP-03 — Provenance and Reproducibility**
 
-* **`radps-context`:** Stores the domain-specific provenance lineage data persistently alongside the artifacts.  
+* **`radps-context`:** Stores the domain-specific provenance lineage data persistently alongside the artifacts.
 * **Workflow system:** Tracks the actual execution history, which versions of tasks ran, the hardware used, and the parameters passed at runtime.
 
 **GAP-04 — Partial Re-execution / Targeted Stage Re-run**
 
-* **`radps-context`:** Creates a discrete, serializable snapshot of the domain state at any point in the pipeline.  
-* **Workflow system:** Handles the invalidation of downstream tasks in the task graph and re-triggers only the necessary execution paths. Fetches the context snapshot from just before the stage to be executed.
+* **`radps-context`:** Creates a discrete, serializable snapshot of the domain state at any point in the pipeline.
+* **Workflow system:** Fetches the context snapshot from just before the stage to be executed and re-triggers only the necessary execution paths.
 
 **GAP-05 — External System Integration**
 
-* **`radps-context`:** Serves as the queryable system holding the current state and QA values for external tools to read.  
-* **Workflow system:** Actively pushes updates, fires webhooks, and notifies external dashboards when tasks start, finish, or transition states.
+* **`radps-context`:** Serves as a queryable system holding the current state, QA values, and references to any produced artifacts for external tools to read.  
+* **Workflow system:** Actively notifies external dashboards when tasks start, finish, or transition states.
 
 **GAP-06 — Initialization from Intermediate State**
 
-* **`radps-context`:** Uses the pre-processed archival data to instantiate its state so it appears as a valid mid-pipeline state.  
-* **Workflow system:** Is able to read this context and intelligently skip the prior stages (e.g., calibration) in the task graph. 
+* **`radps-context`:** Uses the pre-processed archival data to instantiate its state as a valid mid-pipeline state.  
+* **Workflow system:** Is able to read this context and intelligently skip the prior stages in the task graph. 
 
 **GAP-07 — Explicit Tag-Based Execution Control**
 
-* **`radps-context`:** Records information about metadata tags (e.g., `[PAUSE]`) so they can be persisted on datasets.  
-* **Workflow system:** Queries these tags before task execution and actively enforces the logic (e.g., halting the workflow or altering reporting paths).
+* **`radps-context`:** Stores execution-control tags (e.g., `[PAUSE]`) so they can be persisted on datasets.  
+* **Workflow system:** Queries these metadata tags before task execution and enforces the logic (e.g., halting the workflow or altering reporting paths).
 
 **Referenced documents:**   
-The following documents were used to determine the RADPS use cases relevant to the pipeline context: 
+The following documents were used to determine the relevant RADPS use cases:
 
 * ALMA Data Processing Technical Requirements  
 * CSS Stakeholder Needs – SDA, SDP, SIT, TI  
