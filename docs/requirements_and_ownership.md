@@ -7,7 +7,7 @@ The use cases detailed in “Pipeline Context Use Cases” were derived from the
 
 This document builds off of the current pipeline use cases document by evaluating each use case on two fronts: if each use case satisfies a related RADPS requirement, and if so, which architectural component should be responsible for its implementation. Currently, we are assessing implementation across `radps-context` and the Workflow Orchestration System (currently Prefect), with other layers potentially added in the future.
 
-`radps-context` will be a software component of RADPS responsible for maintaining and providing access to pipeline processing state — including observation metadata, calibration state, imaging state, and produced artifacts — throughout the lifecycle of a pipeline run. It is distinct from the workflow orchestration layer, which manages task scheduling and execution.
+`radps-context` will be a software component of RADPS responsible for maintaining and providing access to pipeline processing domain state — including observation metadata, calibration state, imaging state, and produced artifacts — throughout the lifecycle of a pipeline run. The workflow orchestration layer will manages task scheduling, execution, and non-domain specific state.
 
 Based on this evaluation, the use cases are first mapped to RADPS requirements (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated. In Section 3, current context use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated implementation component. For use cases that were not cleanly separable between `radps-context` and the workflow orchestration, the responsibilities of each component are called out.
 
@@ -102,7 +102,7 @@ The following gap use cases capture critical system capabilities that are explic
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, auditor, reproducibility tooling |
-| **Summary** | The context must record sufficient provenance – software versions, task parameters, per-stage state, hardware and execution-environment details (CPU architecture, node/cluster specification, kernel and MPI versions, workload-manager/scheduler configuration, and relevant scheduler limits) — to enable precise reproduction and audit of past runs. |
+| **Summary** | The context must record sufficient provenance – software versions, task parameters, per-stage state, hardware and execution-environment details (CPU architecture, node/cluster specification, kernel, workload-manager/scheduler configuration, and relevant scheduler limits) — to enable precise reproduction and audit of past runs. |
 | **Postconditions** | Any past processing step can be reproduced or audited using the recorded provenance chain. |
 | **RADPS requirements** | ALMA-TR103, ALMA-TR104, ALMA-TR105 |
 
