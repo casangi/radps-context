@@ -76,41 +76,39 @@ This glossary defines common distributed-systems, data-management, and context-c
 
 - **Workflow orchestration layer / system**: The component that plans, schedules, and coordinates execution of pipeline tasks. In RADPS it owns task-graph progression, retries, and enforcement of execution-control decisions, while `radps-context` persists the durable state those decisions depend on.
 
-## Legacy Pipeline terms (used in current Pipeline context docs)
+## Current Pipeline terms (used in current Pipeline context docs)
 
 - **ASDM**: ALMA Science Data Model; an archive/distribution format that is typically imported/converted into a MeasurementSet for pipeline processing.
 
-- **CASA**: Common Astronomy Software Applications; the legacy pipeline runs “inside CASA” (Python + CASA tools), and many tasks assume CASA data models and IDs.
+- **CASA**: Common Astronomy Software Applications; the current pipeline runs “inside CASA” (Python + CASA tools), and many tasks assume CASA data models and IDs.
 
-- **Context (legacy Pipeline)**: A long-lived, in-process Python object that acts as session state + shared mutable state + persistence unit (via pickle). In the legacy design it also carries convenience methods and domain objects (for example `observing_run`).
+- **Context**: A long-lived, in-process Python object that acts as session state + shared mutable state + persistence unit (via pickle). In the current pipeline design it also carries convenience methods and domain-model handles such as the observation catalog.
 
-- **ContextData / Context services**: A separation where durable/serializable state (ContextData) is distinct from runtime-only helpers (services like caches, tool handles, heuristic engines).
-
-- **Event bus (legacy Pipeline)**: An in-process publish/subscribe mechanism for lifecycle markers (task start/complete, result acceptance). It exists today but is not the primary state mutation channel.
+- **Event bus**: An in-process publish/subscribe mechanism for lifecycle markers (task start/complete, result acceptance). It exists today but is not the primary state mutation channel.
 
 - **Imaging “scratch pad” state**: A collection of ad-hoc context attributes used to coordinate the imaging sub-pipeline across multiple stages (for example cleaning lists, beam summaries, thresholds). This is intentionally flexible but fragile without schema/versioning.
 
-- **`observing_run` (legacy Pipeline)**: The main domain-model handle hanging off context that provides MS/scan/field/SPW metadata queries and ID mapping utilities; effectively the “dataset/observation catalog” of the legacy design.
+- **`observing_run`**: The main domain-model handle hanging off context that provides MS/scan/field/SPW metadata queries and ID mapping utilities; effectively the “dataset/observation catalog” of the current pipeline design.
 
-- **`callibrary` (legacy Pipeline)**: The calibration application registry hanging off context. It is append-oriented and ordered, supports predicate-based queries, and acts as the primary cross-stage communication mechanism for calibration workflows.
+- **`callibrary`**: The calibration application registry hanging off context. It is append-oriented and ordered, supports predicate-based queries, and acts as the primary cross-stage communication mechanism for calibration workflows.
 
-- **MeasurementSet (MS)**: A radio astronomy dataset format used by CASA and the pipeline. Many legacy context queries are “MS-centric” (look up by MS name, filter by MS type, map SPW IDs).
+- **MeasurementSet (MS)**: A radio astronomy dataset format used by CASA and the pipeline. Many current-pipeline context queries are “MS-centric” (look up by MS name, filter by MS type, map SPW IDs).
 
-- **Orchestration driver**: A front-end that creates and drives execution against the pipeline context. The legacy pipeline supports multiple orchestration drivers: PPR command lists (ALMA/VLA automated processing), XML procedures (production recipes), and interactive task calls (developer/operator sessions). The context must remain a stable state contract across all drivers (Pipeline UC-11).
+- **Orchestration driver**: A front-end that creates and drives execution against the pipeline context. The current pipeline supports multiple orchestration drivers: PPR command lists (ALMA/VLA automated processing), XML procedures (production recipes), and interactive task calls (developer/operator sessions). The context must remain a stable state contract across all drivers (Pipeline UC-11).
 
 - **PPR**: Pipeline Processing Request; an XML bundle used to drive automated processing (inputs + metadata + an ordered command list).
 
-- **Pickle**: Python’s built-in object serialization format used by the legacy pipeline for persisting context and proxying results. Convenient for short-lived resume/debug, but fragile across version changes and not designed for multi-writer concurrency.
+- **Pickle**: Python’s built-in object serialization format used by the current pipeline for persisting context and proxying results. Convenient for short-lived resume/debug, but fragile across version changes and not designed for multi-writer concurrency.
 
-- **Results**: A per-task return object that contains outputs (and often QA, tracebacks, and metadata). In the legacy pipeline, results are “accepted” into context via `Results.accept(context)` / `merge_with_context()`.
+- **Results**: A per-task return object that contains outputs (and often QA, tracebacks, and metadata). In the current pipeline, results are “accepted” into context via `Results.accept(context)` / `merge_with_context()`.
 
 - **ResultsProxy**: A lightweight on-disk proxy for a Results object (pickled per stage) used to keep the in-memory context smaller; unpickled lazily during weblog rendering and other traversals.
 
-- **SPW (Spectral Window)**: A spectral subdivision of the data (frequency window). The legacy pipeline commonly uses a “virtual SPW” abstraction and maps virtual↔real (CASA-native) SPW IDs per MS.
+- **SPW (Spectral Window)**: A spectral subdivision of the data (frequency window). The current pipeline commonly uses a “virtual SPW” abstraction and maps virtual <--> real (CASA-native) SPW IDs per MS.
 
-- **Virtual SPW mapping**: A legacy abstraction where pipeline-defined “virtual” SPW IDs are mapped to the “real” (CASA-native) SPW IDs for a given MS. This enables stable cross-MS logic, but requires explicit mapping tables/functions.
+- **Virtual SPW mapping**: A current-pipeline abstraction where pipeline-defined “virtual” SPW IDs are mapped to the “real” (CASA-native) SPW IDs for a given MS. This enables stable cross-MS logic, but requires explicit mapping tables/functions.
 
-- **Stage**: A sequential, top-level step in a legacy Pipeline run, usually associated with a task execution and a stage number used for ordering and reporting.
+- **Stage**: A sequential, top-level step in a current Pipeline run, usually associated with a task execution and a stage number used for ordering and reporting.
 
 - **Task**: A registered unit of work (often class-based) invoked by the CLI wrappers or recipe execution; typically produces a Results object.
 
@@ -118,4 +116,4 @@ This glossary defines common distributed-systems, data-management, and context-c
 
 - **Weblog**: The human-readable HTML report product generated from context + results (and often re-rendered stage-by-stage during execution).
 
-- **QA plugins (legacy Pipeline)**: The legacy QA framework where plugins read context + a task’s results to emit QA scores/diagnostics. QA handlers are typically read-only with respect to context state.
+- **QA plugins**: The current pipeline QA framework where plugins read context + a task’s results to emit QA scores/diagnostics. QA handlers are typically read-only with respect to context state.

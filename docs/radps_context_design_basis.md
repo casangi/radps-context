@@ -77,7 +77,7 @@ The Pipeline analysis still collapses to 15 broad responsibilities. The table be
 | 7 | Session Persistence | UC-11, UC-12 | RADPS-UC1, RADPS-UC5, RADPS-UC6, RADPS-UC23 | Explicit persisted state replaces implementation-bound session snapshots and supports portable restore semantics. |
 | 8 | Parallel Distribution | UC-13, UC-14 | RADPS-UC17, GAP-01, GAP-02 | Consistent snapshot reads and ACID write-back support overlapping execution. |
 | 9 | Inter-Task Data Passing | UC-09 | RADPS-UC14, RADPS-UC17 | Replaces implicit state merging plus results-list walking with named outputs and transactional updates. |
-| 10 | Stage Tracking & Result Accumulation | UC-07, UC-08 | RADPS-UC2, RADPS-UC3 | Current node state plus ordered attempt history replaces legacy stage numbering as the main execution record. |
+| 10 | Stage Tracking & Result Accumulation | UC-07, UC-08 | RADPS-UC2, RADPS-UC3 | Current node state plus ordered attempt history replaces current-pipeline stage numbering as the main execution record. |
 | 11 | Reporting & Export Support | UC-15, UC-19 | RADPS-UC8, RADPS-UC13, RADPS-UC18, RADPS-UC20 | Stable interfaces support weblogs, manifests, scripts, dashboards, and product packaging. |
 | 12 | QA Score Storage | UC-16 | RADPS-UC3, RADPS-UC13 | Read-only context snapshots for QA handlers retain per-selection detail. |
 | 13 | Debuggability / Inspectability | UC-17 | RADPS-UC13, RADPS-UC15, RADPS-UC19 | Queryable inspection surfaces replace opaque serialized-state inspection as the primary debugging interface. |
@@ -104,7 +104,7 @@ The biggest semantic change is multi-writer concurrency:
 
 ### Interfaces: from in-process Python access to stable APIs and event feeds
 
-- The legacy pipeline assumes in-process Python attribute access; RADPS must expose the same state through typed, language-neutral APIs.
+- The current pipeline assumes in-process Python attribute access; RADPS must expose the same state through typed, language-neutral APIs.
 - External consumers (dashboards, schedulers, archive systems) must be able to query current state or subscribe to lifecycle events without scraping product files or sharing a filesystem.
 - API/schema versioning becomes part of the context contract rather than an afterthought.
 

@@ -13,7 +13,7 @@ This version is tuned for **Pipeline Context** design. In a distributed system, 
 
 See also:
 
-- [docs/radps_use_case_mapping.md](radps_use_case_mapping.md) (Pipeline UC → RADPS context mapping)
+- [docs/radps_context_design_basis.md](radps_context_design_basis.md) (Pipeline UC → RADPS context mapping)
 - [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) (source Pipeline UCs)
 - [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
 
@@ -53,11 +53,23 @@ Draft RADPS Use Cases
 
 These are first-draft entries focused on **context** (run ledger + artifact registry + provenance), not the entire RADPS workflow.
 
-Notes on numbering:
+Notes:
 
 - These use `UC*` numbering for easy cross-reference.
 - They are **RADPS context use cases**; when citing them next to Pipeline UCs, refer to them as “RADPS-UC#”.
 - The requirement trace in [docs/requirements_and_ownership.md](requirements_and_ownership.md) distinguishes workflow-only responsibilities from shared workflow/context responsibilities. This document only expands the use cases that require `radps-context` behavior; workflow-only items such as current UC-07, UC-08, and GAP-01 are intentionally referenced but not modeled here as standalone context use cases.
+- For consistency, the `Relevant Stakeholders` field uses a controlled vocabulary. Services, workers, and software components belong in `Actors`, not `Relevant Stakeholders`.
+- Stakeholder definitions:
+    - **Operations**: People responsible for run setup, monitoring, intervention, reruns, restart decisions, storage control, and operational delivery.
+    - **Pipeline developers**: People who design, implement, debug, validate, or maintain pipeline logic, planning logic, and context-facing behavior.
+    - **QA reviewers**: People or review groups responsible for assessing processing quality, QA outcomes, and release readiness.
+    - **Reporting consumers**: People who rely on manifests, reports, dashboards, or rendered summaries to understand run state or outputs.
+    - **Archive consumers**: People or systems responsible for packaging, ingesting, delivering, or retrieving archived products and manifests.
+    - **Audit and reproducibility consumers**: People or systems concerned with provenance, traceability, compliance, repeatability, or regression comparison.
+    - **Science support**: People who interpret processing results, apply domain judgment, or provide expert guidance on data-specific issues and overrides.
+    - **Domain teams**: Groups responsible for domain- or observatory-specific extensions, policies, metadata, or state models.
+    - **External system operators**: People responsible for integrating, operating, or supporting external systems that consume run state, events, or exported summaries.
+    - **Client developers**: People building or maintaining external or language-specific clients against the context contract.
 
 RADPS-UC1: Initialize or Load a Run Context
 
@@ -65,13 +77,13 @@ RADPS-UC1: Initialize or Load a Run Context
         UC-03, UC-11, UC-12, UC-19.
 
     Relevant Stakeholders
-        Operations, pipeline developers, QA reviewers, runtime services (planner/executor/reporting).
+        Operations, Pipeline developers, QA reviewers.
     Frequency:
         High.
     Importance:
         High.
     Actors:
-        Operator (human or automation), Planner service, Context Store.
+        Operator (human or automation), Planner service, Context system.
     Goals:
         Create a new run record with stable identifiers, initial metadata, and run-level location configuration, or load an existing run for resume. The context must be driver-agnostic: any orchestration front-end (automated batch, interactive session, recipe evaluator) must produce an equivalent run record, and the context contract must remain stable across drivers (Pipeline UC-11). Run identity, driver metadata, and artifact location/layout policy must be first-class context data so save/restore and export workflows remain portable (Pipeline UC-12, UC-19).
     Preconditions:
@@ -86,11 +98,11 @@ RADPS-UC1: Initialize or Load a Run Context
         Record a RunCreated event (who/when/what inputs/policy/driver).
     Basic Flow:
         1. Actor submits create/load request with minimal metadata (including driver identity and location configuration).
-        2. Context Store validates authorization and required fields.
-        3. Context Store creates the run record (or returns the existing run) and returns the run reference.
+        2. Context system validates authorization and required fields.
+        3. Context system creates the run record (or returns the existing run) and returns the run reference.
     Alternative Flows (optional):
         - Load fails because the run/version is unsupported; system returns a structured incompatibility error.
-        - Driver submits additional metadata (project IDs, performance parameters) as part of creation; Context Store records these as immutable-after-init run metadata.
+        - Driver submits additional metadata (project IDs, performance parameters) as part of creation; Context system records these as immutable-after-init run metadata.
 
 RADPS-UC2: Persist a Plan Representation (Plan Registration)
 
@@ -98,13 +110,13 @@ RADPS-UC2: Persist a Plan Representation (Plan Registration)
         UC-07, UC-08, UC-12.
 
     Relevant Stakeholders
-        Planner developers, operations (reproducibility), reporting/audit consumers.
+        Pipeline developers, Operations, Audit and reproducibility consumers.
     Frequency:
         High (at least once per run; may recur on re-plan).
     Importance:
         High.
     Actors:
-        Planner service, Context Store.
+        Planner service, Context system.
     Goals:
         Record the planned computation structure so execution and reporting can be tied back to an explicit plan.
     Preconditions:
@@ -118,9 +130,9 @@ RADPS-UC2: Persist a Plan Representation (Plan Registration)
     Observability / Audit:
         Record a PlanRegistered event with plan provenance.
     Basic Flow:
-        1. Planner submits plan definition to Context Store.
-        2. Context Store validates schema and links plan to run.
-        3. Context Store returns the plan reference and node identifier map.
+        1. Planner submits plan definition to Context system.
+        2. Context system validates schema and links plan to run.
+        3. Context system returns the plan reference and node identifier map.
     Alternative Flows (optional):
         - Validation fails (schema/version mismatch); plan is rejected with a clear error.
 
@@ -130,15 +142,15 @@ RADPS-UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start
         UC-07, UC-08, UC-15, UC-17, UC-19.
 
     Relevant Stakeholders
-        Operations (recoverability), QA/review, developers (debugging), reporting, regression harnesses.
+        Operations, Pipeline developers, QA reviewers, Reporting consumers, Audit and reproducibility consumers.
     Frequency:
         Very high (per executed node attempt).
     Importance:
         High.
     Actors:
-        Executor/worker, Context Store.
+        Executor/worker, Context system.
     Goals:
-        Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for progress tracking, reporting, QA, debugging, and export (Pipeline UC-07, UC-08, UC-15, UC-17, UC-19). Node ordering within the DAG replaces legacy stage numbering and must remain coherent across resumes.
+        Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for progress tracking, reporting, QA, debugging, and export (Pipeline UC-07, UC-08, UC-15, UC-17, UC-19). Node ordering within the DAG replaces current-pipeline stage numbering and must remain coherent across resumes.
     Preconditions:
         A run record and plan record exist; the node exists in the plan; worker is authorized to update run state.
     Postconditions / Outputs:
@@ -151,12 +163,12 @@ RADPS-UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start
         Emit NodeAttemptStarted/Finished events; attach tracebacks and error codes where applicable. The execution history itself serves as the primary progress-tracking and debugging interface.
     Basic Flow:
         1. Worker requests to start an attempt for a node.
-        2. Context Store creates the attempt record and marks it in progress.
+        2. Context system creates the attempt record and marks it in progress.
         3. Worker completes work and submits completion status and summary.
-        4. Context Store marks the attempt succeeded or failed, updates node-level derived status, and appends to the ordered execution history.
+        4. Context system marks the attempt succeeded or failed, updates node-level derived status, and appends to the ordered execution history.
     Alternative Flows (optional):
-        - Worker crashes mid-attempt; Context Store detects lost heartbeats and marks the attempt as no longer active so it can be retried.
-        - Duplicate completion arrives; Context Store ignores it (idempotent) or returns existing completion.
+        - Worker crashes mid-attempt; Context system detects lost heartbeats and marks the attempt as no longer active so it can be retried.
+        - Duplicate completion arrives; Context system ignores it (idempotent) or returns existing completion.
         - Regression harness queries the execution history to validate deterministic outputs, durations, and failure signals across runs.
 
 RADPS-UC4: Register Produced Artifacts with Lineage
@@ -165,13 +177,13 @@ RADPS-UC4: Register Produced Artifacts with Lineage
         UC-06, UC-19, GAP-02.
 
     Relevant Stakeholders
-        Operations (delivery/retention), QA, reporting, reproducibility.
+        Operations, QA reviewers, Reporting consumers, Audit and reproducibility consumers.
     Frequency:
         Very high.
     Importance:
         High.
     Actors:
-        Worker, Context Store (artifact registry).
+        Worker, Context system (artifact registry).
     Goals:
         Make artifacts discoverable and traceable: what was produced, by whom, from what inputs, and where it lives across supported storage backends.
     Preconditions:
@@ -186,8 +198,8 @@ RADPS-UC4: Register Produced Artifacts with Lineage
         Emit ArtifactRegistered event.
     Basic Flow:
         1. Worker writes artifact payload.
-        2. Worker submits artifact metadata (type, inputs, locations) to Context Store.
-        3. Context Store registers artifact and links it to the producing attempt.
+        2. Worker submits artifact metadata (type, inputs, locations) to Context system.
+        3. Context system registers artifact and links it to the producing attempt.
     Alternative Flows (optional):
         - Artifact is first written to worker-local scratch; registration is deferred or recorded as non-exportable until durable storage is confirmed.
         - Location becomes unavailable after write; artifact registration fails and the node attempt is marked failed.
@@ -198,13 +210,13 @@ RADPS-UC5: Create and Validate an Explicit Checkpoint
         UC-12, GAP-04.
 
     Relevant Stakeholders
-        Operations, developers (safe restart), cost control.
+        Operations, Pipeline developers.
     Frequency:
         Medium to high (stage boundaries; before expensive fan-out).
     Importance:
         High.
     Actors:
-        Executor/controller, Operator, Context Store.
+        Executor/controller, Operator, Context system.
     Goals:
         Define a durable “safe restart point” that references a closed set of artifacts/state.
     Preconditions:
@@ -219,7 +231,7 @@ RADPS-UC5: Create and Validate an Explicit Checkpoint
         Emit CheckpointCreated event.
     Basic Flow:
         1. Actor requests checkpoint creation for a defined scope (e.g., stage boundary or partition set).
-        2. Context Store verifies prerequisites and creates checkpoint.
+        2. Context system verifies prerequisites and creates checkpoint.
     Alternative Flows (optional):
         - Prerequisites missing; checkpoint is rejected with a list of missing nodes/artifacts.
 
@@ -229,13 +241,13 @@ RADPS-UC6: Resume or Partial Re-run with Downstream Invalidation
         UC-12, GAP-04, GAP-06.
 
     Relevant Stakeholders
-        Operations (recovery), QA, developers.
+        Operations, Pipeline developers, QA reviewers.
     Frequency:
         Medium.
     Importance:
         High.
     Actors:
-        Operator/automation, Context Store.
+        Operator/automation, Context system.
     Goals:
         Resume a run safely from a checkpoint or re-run a subgraph/partition while maintaining provenance and explicit dependency/invalidation semantics.
     Preconditions:
@@ -250,7 +262,7 @@ RADPS-UC6: Resume or Partial Re-run with Downstream Invalidation
         Emit RunResumed/RerunRequested events with reason and scope.
     Basic Flow:
         1. Actor requests resume/rerun for a scope.
-        2. Context Store marks downstream state stale according to the dependency graph and records the rerun intent.
+        2. Context system marks downstream state stale according to the dependency graph and records the rerun intent.
         3. Executor observes runnable nodes and proceeds (out of scope here).
     Alternative Flows (optional):
         - Resume fails due to schema/version incompatibility; system returns a structured incompatibility error.
@@ -262,13 +274,13 @@ RADPS-UC7: Operator Annotation and Controlled Overrides
         UC-17, GAP-07, GAP-08.
 
     Relevant Stakeholders
-        Operations, QA, science support, audit/provenance consumers.
+        Operations, QA reviewers, Science support, Audit and reproducibility consumers.
     Frequency:
         Medium.
     Importance:
         Medium to high.
     Actors:
-        Operator/QA reviewer, Context Store.
+        Operator/QA reviewer, Context system.
     Goals:
         Record human decisions (notes, approvals, override parameters) as durable, auditable context state.
     Preconditions:
@@ -283,7 +295,7 @@ RADPS-UC7: Operator Annotation and Controlled Overrides
         Emit AnnotationAdded/OverrideApplied events including actor identity.
     Basic Flow:
         1. Operator submits an annotation or override request.
-        2. Context Store validates authorization and writes the record.
+        2. Context system validates authorization and writes the record.
     Alternative Flows (optional):
         - Permission denied; request is rejected and logged.
 
@@ -293,13 +305,13 @@ RADPS-UC8: Export Provenance Manifest / Report as an Artifact
         UC-15, UC-19, GAP-03, GAP-05.
 
     Relevant Stakeholders
-        Operations (delivery), QA, archive/consumers.
+        Operations, QA reviewers, Reporting consumers, Archive consumers, Audit and reproducibility consumers.
     Frequency:
         High (at least once per run; may be re-generated).
     Importance:
         High.
     Actors:
-        Reporting service, Context Store.
+        Reporting service, Context system.
     Goals:
         Produce machine-readable manifests and/or human-readable reports based solely on durable context + registered artifacts.
     Preconditions:
@@ -325,13 +337,13 @@ RADPS-UC9: Artifact Retention and Tombstoning (Safe Cleanup)
         UC-12, UC-19.
 
     Relevant Stakeholders
-        Operations (storage control), audit/provenance consumers.
+        Operations, Audit and reproducibility consumers.
     Frequency:
         Medium.
     Importance:
         Medium to high.
     Actors:
-        Lifecycle manager, Operator, Context Store.
+        Lifecycle manager, Operator, Context system.
     Goals:
         Apply retention/cleanup without breaking resumability or provenance.
     Preconditions:
@@ -346,7 +358,7 @@ RADPS-UC9: Artifact Retention and Tombstoning (Safe Cleanup)
         Emit ArtifactTombstoned/RetentionApplied events.
     Basic Flow:
         1. Lifecycle manager identifies candidates per policy.
-        2. Context Store records tombstones/retention decisions.
+        2. Context system records tombstones/retention decisions.
         3. Storage cleanup occurs (out of scope here), and completion is recorded.
     Alternative Flows (optional):
         - Artifact is on hold due to an active investigation; cleanup is skipped and hold reason recorded.
@@ -357,13 +369,13 @@ RADPS-UC10: Query Dataset / Observation Catalog (Read-Only View)
         UC-01, UC-02, GAP-08.
 
     Relevant Stakeholders
-        Pipeline algorithms, heuristics, QA, reporting.
+        Pipeline developers, QA reviewers, Reporting consumers.
     Frequency:
         Very high.
     Importance:
         High.
     Actors:
-        Worker, QA/reporting service, Context Store.
+        Worker, QA/reporting service, Context system.
     Goals:
         Provide fast, consistent access to observation metadata (catalog inventory, fields, SPWs, scans, data-type metadata, and cross-dataset identity/matching records) required by tasks and reporting. This is the read-only catalog surface underlying more specialized matching workflows such as UC22.
     Preconditions:
@@ -378,7 +390,7 @@ RADPS-UC10: Query Dataset / Observation Catalog (Read-Only View)
         Optional: record query provenance for expensive reports (not required for all task-level reads).
     Basic Flow:
         1. Consumer requests catalog data for a scope (by dataset, field/spw/scan partition, logical selection, or data type).
-        2. Context Store returns typed metadata records.
+        2. Context system returns typed metadata records.
     Alternative Flows (optional):
         - Requested scope not found; return a structured “unknown dataset/partition” error.
 
@@ -388,13 +400,13 @@ RADPS-UC11: Apply Transactional Calibration State Update
         UC-04.
 
     Relevant Stakeholders
-        Calibration tasks, operations (resume correctness), QA.
+        Pipeline developers, Operations, QA reviewers.
     Frequency:
         High.
     Importance:
         High.
     Actors:
-        Worker, Context Store.
+        Worker, Context system.
     Goals:
         Atomically record a set of calibration state changes produced by a task.
     Preconditions:
@@ -409,7 +421,7 @@ RADPS-UC11: Apply Transactional Calibration State Update
         Emit CalibrationStateUpdated event and link to attempt.
     Basic Flow:
         1. Worker submits a calibration-state patch (multiple entries) referencing produced artifacts.
-        2. Context Store validates and commits the patch atomically.
+        2. Context system validates and commits the patch atomically.
     Alternative Flows (optional):
         - Conflict detected with a concurrent incompatible update; patch is rejected and worker must retry with updated base version.
 
@@ -419,13 +431,13 @@ RADPS-UC12: Update Imaging State (Schema’d Scratch Pad)
         UC-05.
 
     Relevant Stakeholders
-        Imaging tasks/heuristics, operations (reproducibility), reporting.
+        Pipeline developers, Operations, Reporting consumers.
     Frequency:
         High.
     Importance:
         High.
     Actors:
-        Worker, Context Store.
+        Worker, Context system.
     Goals:
         Replace ad-hoc imaging attributes with a versioned, typed imaging state document that supports partition-scoped updates.
     Preconditions:
@@ -440,7 +452,7 @@ RADPS-UC12: Update Imaging State (Schema’d Scratch Pad)
         Emit ImagingStateUpdated event.
     Basic Flow:
         1. Worker submits imaging state update scoped to a partition.
-        2. Context Store validates schema/version and commits.
+        2. Context system validates schema/version and commits.
     Alternative Flows (optional):
         - Schema/version mismatch; update rejected with required migration/version info.
 
@@ -450,13 +462,13 @@ RADPS-UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
         UC-15, UC-16, UC-17, UC-19.
 
     Relevant Stakeholders
-        QA, weblog/report generation, developers, CI/regression harnesses, operations.
+        QA reviewers, Reporting consumers, Pipeline developers, Operations.
     Frequency:
         High.
     Importance:
         High.
     Actors:
-        QA/reporting service, debugging/inspection tools, CI harness, Context Store.
+        QA/reporting service, debugging/inspection tools, CI harness, Context system.
     Goals:
         Provide a consistent read view of run state and artifact registry for rendering, QA, export, and inspection without depending on worker memory. Must also support debugging use cases: diagnosing failures (what ran, what data was loaded, what state was produced), validating deterministic outputs, and surfacing failures beyond raw task exceptions (Pipeline UC-15, UC-16, UC-17, UC-19).
     Preconditions:
@@ -471,7 +483,7 @@ RADPS-UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
         Record snapshot boundary identifiers used by the report or inspection session.
     Basic Flow:
         1. Service requests a snapshot for the run at a boundary.
-        2. Context Store serves a consistent view for queries.
+        2. Context system serves a consistent view for queries.
     Alternative Flows (optional):
         - Boundary not available (no checkpoint); service may request “latest committed” with caveats recorded.
         - Debugging/CI tool queries snapshot to compare outputs across runs or validate expected artifacts and QA outcomes.
@@ -482,13 +494,13 @@ RADPS-UC14: Resolve Named Outputs Instead of Stage-Index Walking
         UC-09.
 
     Relevant Stakeholders
-        Task developers, operations (correct reruns), performance.
+        Pipeline developers, Operations.
     Frequency:
         High.
     Importance:
         High.
     Actors:
-        Worker, Context Store.
+        Worker, Context system.
     Goals:
         Allow downstream tasks to discover upstream outputs by stable keys (names/types/scopes) instead of walking an ordered results list.
     Preconditions:
@@ -503,7 +515,7 @@ RADPS-UC14: Resolve Named Outputs Instead of Stage-Index Walking
         Optional: record bindings for provenance (which artifact IDs satisfied which logical inputs).
     Basic Flow:
         1. Consumer requests “latest output of type X for scope Y” (or a specific version).
-        2. Context Store returns artifact IDs and metadata.
+        2. Context system returns artifact IDs and metadata.
     Alternative Flows (optional):
         - Output not found; consumer fails fast with a structured missing-dependency error.
 
@@ -513,13 +525,13 @@ RADPS-UC15: Append-Only Event Log / Patch Log (Audit + Replay)
         UC-08, UC-17, GAP-05.
 
     Relevant Stakeholders
-        Operations, QA, developers (debugging), external integrations, provenance/audit consumers.
+        Operations, Pipeline developers, QA reviewers, External system operators, Audit and reproducibility consumers.
     Frequency:
         Very high.
     Importance:
         High.
     Actors:
-        Context Store, workers/executor, reporting/monitoring consumers.
+        Context system, workers/executor, reporting/monitoring consumers.
     Goals:
         Maintain an append-only record of significant lifecycle events and/or state patches so that run evolution is auditable and (where feasible) replayable.
     Preconditions:
@@ -534,7 +546,7 @@ RADPS-UC15: Append-Only Event Log / Patch Log (Audit + Replay)
         Events are the audit trail; provide queries by run, by node, and by time range.
     Basic Flow:
         1. Producer submits an event (and optional patch reference) with an idempotency key.
-        2. Context Store appends the event and returns an event ID.
+        2. Context system appends the event and returns an event ID.
         3. Consumers query or subscribe to events for monitoring/reporting.
     Alternative Flows (optional):
         - Duplicate event submission returns the existing event ID.
@@ -545,13 +557,13 @@ RADPS-UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
         UC-18.
 
     Relevant Stakeholders
-        Domain teams (ngVLA, WSU), pipeline algorithm developers, operations.
+        Domain teams, Pipeline developers, Operations.
     Frequency:
         Medium.
     Importance:
         Medium to high.
     Actors:
-        Worker/planner, Context Store.
+        Worker/planner, Context system.
     Goals:
         Support domain-specific state without reintroducing untyped “state bags”, while keeping the core context contract stable.
     Preconditions:
@@ -577,13 +589,13 @@ RADPS-UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Executi
         UC-09, UC-13, UC-14, GAP-01, GAP-02.
 
     Relevant Stakeholders
-        Executor/workers, operations (scalability/reliability), developers.
+        Operations, Pipeline developers.
     Frequency:
         Very high.
     Importance:
         High.
     Actors:
-        Executor/worker, Context Store.
+        Executor/worker, Context system.
     Goals:
         Allow workers to read a consistent snapshot of required context state while ensuring all writes return through ACID transactions rather than worker-local serialized state, including asynchronous and overlapping execution of independent work across partitions.
     Preconditions:
@@ -600,7 +612,7 @@ RADPS-UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Executi
         1. Worker requests a snapshot token for its node/partition scope.
         2. Worker performs computation using snapshot reads.
         3. Worker registers artifacts and submits context patches transactionally.
-        4. Context Store commits patches and updates derived state.
+        4. Context system commits patches and updates derived state.
     Alternative Flows (optional):
         - Write conflict detected; worker must refresh snapshot and retry with a new base version.
 
@@ -610,13 +622,13 @@ RADPS-UC18: Publish Run State to External Systems
         UC-07, UC-15, UC-19, GAP-05.
 
     Relevant Stakeholders
-        QA dashboards, monitoring tools, archive ingest systems, schedulers, operators.
+        Operations, QA reviewers, Archive consumers, External system operators.
     Frequency:
         High.
     Importance:
         High.
     Actors:
-        External consumer/service, Context Store, notification dispatcher.
+        External consumer/service, Context system, notification dispatcher.
     Goals:
         Provide timely, stable access to current processing state, lifecycle events, and summary views without requiring consumers to scrape product files or worker-local storage. The design must support both pull-style queries and push-style subscriptions for selected lifecycle events.
     Preconditions:
@@ -631,7 +643,7 @@ RADPS-UC18: Publish Run State to External Systems
         Emit SubscriptionCreated/Updated, NotificationDispatched, and NotificationFailed events with consumer identity and schema version.
     Basic Flow:
         1. Consumer registers or uses an existing subscription/query contract for selected run events or summaries.
-        2. Context Store serves query results or dispatches notifications when the selected events occur.
+        2. Context system serves query results or dispatches notifications when the selected events occur.
         3. Delivery attempts and any exported summary artifacts are recorded for audit.
     Alternative Flows (optional):
         - Consumer requests an unsupported schema version; request is rejected with negotiation details.
@@ -643,13 +655,13 @@ RADPS-UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
         UC-08, UC-17, UC-19, GAP-03.
 
     Relevant Stakeholders
-        Pipeline operators, auditors, regression harnesses, reproducibility tooling.
+        Operations, QA reviewers, Audit and reproducibility consumers.
     Frequency:
         High.
     Importance:
         High.
     Actors:
-        Worker, reporting service, Context Store.
+        Worker, reporting service, Context system.
     Goals:
         Capture the immutable provenance required to reproduce or audit a run: exact input identities/hashes, parameters, software versions, execution environment, hardware, execution-control details, and lineage links for each attempt and exported product.
     Preconditions:
@@ -664,7 +676,7 @@ RADPS-UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
         Emit ProvenanceCaptured events and surface missing or partial provenance fields explicitly.
     Basic Flow:
         1. Worker or reporting service collects input hashes/fingerprints and environment metadata.
-        2. Context Store validates required fields and stores the immutable provenance envelope linked to the attempt or artifact.
+        2. Context system validates required fields and stores the immutable provenance envelope linked to the attempt or artifact.
         3. Downstream reporting/export queries these records directly.
     Alternative Flows (optional):
         - Some hashes are unavailable at completion time; system records partial provenance with explicit missing-field markers and may block checkpoint/export per policy.
@@ -676,13 +688,13 @@ RADPS-UC20: Serve a Language-Neutral Context API
         UC-15, UC-19, GAP-05.
 
     Relevant Stakeholders
-        Non-Python clients, external tools, pipeline services.
+        Client developers, Pipeline developers, External system operators.
     Frequency:
         High.
     Importance:
         High.
     Actors:
-        Client application, Context API service, Context Store.
+        Client application, Context API service, Context system.
     Goals:
         Provide a stable, typed, language-neutral API for querying and updating context state without coupling clients to storage layout or Python object models. Mission-critical metadata, heuristics inputs, transactional workflow operations, and artifact lookup must be covered first; higher-level QA/reporting endpoints may be layered separately.
     Preconditions:
@@ -709,13 +721,13 @@ RADPS-UC21: Register Incremental Dataset Updates and Versioned Results
         UC-01, UC-12, GAP-04.
 
     Relevant Stakeholders
-        Data ingest systems, workflow engine, incremental processing tasks, operators.
+        Operations, Pipeline developers, External system operators.
     Frequency:
         Medium to high.
     Importance:
         High.
     Actors:
-        Ingest service, planner/executor, Context Store.
+        Ingest service, planner/executor, Context system.
     Goals:
         Allow new data to be registered into an active run/session, trigger incremental processing, and ensure new outputs are versioned rather than overwriting prior results.
     Preconditions:
@@ -730,8 +742,8 @@ RADPS-UC21: Register Incremental Dataset Updates and Versioned Results
         Emit DatasetVersionRegistered and IncrementalProcessingRequested events with ingest source and scope.
     Basic Flow:
         1. Ingest system submits new dataset material or a new version reference for an active run.
-        2. Context Store registers the dataset version and determines the affected scopes/nodes.
-        3. Context Store marks the relevant work runnable and ensures subsequent outputs are versioned.
+        2. Context system registers the dataset version and determines the affected scopes/nodes.
+        3. Context system marks the relevant work runnable and ensures subsequent outputs are versioned.
     Alternative Flows (optional):
         - Incoming data conflicts with an existing immutable dataset version; system rejects it or records it as a separate branch/version per policy.
         - Incremental registration arrives while dependent work is running; system serializes, branches, or defers the update according to policy.
@@ -742,13 +754,13 @@ RADPS-UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
         UC-02, UC-18, GAP-08.
 
     Relevant Stakeholders
-        Calibration tasks, imaging tasks, heuristics, pipeline operators.
+        Pipeline developers, Operations, Science support.
     Frequency:
         High.
     Importance:
         High.
     Actors:
-        Worker, heuristic service, operator, Context Store.
+        Worker, heuristic service, operator, Context system.
     Goals:
         Resolve shared identity across heterogeneous datasets that do not share native SPW numbering, field numbering, source labels, or data-column layouts. Matching must support exact semantics for calibration-style consumers, overlap/partial semantics for imaging-style consumers, and explicit override rules with recorded rationale when defaults are ambiguous or incorrect.
     Preconditions:
@@ -763,8 +775,8 @@ RADPS-UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
         Record MatchResolved and MatchOverrideApplied events including matching mode, scope, and actor identity.
     Basic Flow:
         1. Consumer requests a match set for a scope and matching mode.
-        2. Context Store evaluates identity records, matching policy, and any existing overrides.
-        3. Context Store returns the resolved match set and records any newly supplied override.
+        2. Context system evaluates identity records, matching policy, and any existing overrides.
+        3. Context system returns the resolved match set and records any newly supplied override.
     Alternative Flows (optional):
         - Multiple candidate matches remain after policy evaluation; service returns an ambiguity error or candidate set requiring heuristic/user choice.
         - An override conflicts with an existing locked mapping; service rejects it unless an authorized replacement workflow is used.
@@ -775,13 +787,13 @@ RADPS-UC23: Initialize Context from Intermediate Archival State
         UC-12, GAP-06.
 
     Relevant Stakeholders
-        Pipeline operators, archive ingest systems, workflow engine, operations.
+        Operations, Archive consumers, External system operators.
     Frequency:
         Medium.
     Importance:
         High.
     Actors:
-        Archive ingest service, operator, Context Store.
+        Archive ingest service, operator, Context system.
     Goals:
         Materialize a valid mid-pipeline run state from pre-existing archival products or other previously generated durable artifacts so that earlier stages can be skipped and later stages can execute against a normal-looking context state.
     Preconditions:
@@ -796,9 +808,9 @@ RADPS-UC23: Initialize Context from Intermediate Archival State
         Emit IntermediateStateInitialized events with source identities, imported stage boundary, actor identity, and any fields that were inferred rather than directly imported.
     Basic Flow:
         1. Actor submits archival products and declares the intended initialization boundary.
-        2. Context Store validates the source products, required metadata, and compatibility of the imported state.
-        3. Context Store registers the imported artifacts and writes the corresponding typed state records.
-        4. Context Store marks the resulting state as a valid resume boundary for downstream workflow logic.
+        2. Context system validates the source products, required metadata, and compatibility of the imported state.
+        3. Context system registers the imported artifacts and writes the corresponding typed state records.
+        4. Context system marks the resulting state as a valid resume boundary for downstream workflow logic.
     Alternative Flows (optional):
         - Imported products are insufficient to construct a valid boundary; initialization is rejected with a list of missing state elements.
         - Imported records conflict with immutable run state already present; system rejects the import or requires a separate branch/run per policy.
@@ -809,13 +821,13 @@ RADPS-UC24: Persist Execution-Control Tags for Workflow Decisions
         GAP-07.
 
     Relevant Stakeholders
-        Pipeline operators, workflow orchestration services, heuristics, audit/provenance consumers.
+        Operations, Pipeline developers, Audit and reproducibility consumers.
     Frequency:
         Medium.
     Importance:
         High.
     Actors:
-        Operator, heuristic service, workflow service, Context Store.
+        Operator, heuristic service, workflow service, Context system.
     Goals:
         Persist execution-control tags (for example pause, skip, or reroute directives) on runs, datasets, or stage scopes so the workflow layer can reliably enforce them throughout the lifetime of the run.
     Preconditions:
@@ -830,9 +842,9 @@ RADPS-UC24: Persist Execution-Control Tags for Workflow Decisions
         Emit ExecutionControlTagApplied, Updated, or Cleared events with actor identity, scope, rationale, and effective time.
     Basic Flow:
         1. Actor submits an execution-control tag for a run, dataset, or stage scope.
-        2. Context Store validates authorization, scope, and any existing conflicting tag state.
-        3. Context Store records the tag and returns the persisted state.
+        2. Context system validates authorization, scope, and any existing conflicting tag state.
+        3. Context system records the tag and returns the persisted state.
         4. Workflow services query the tag state before scheduling or continuing affected work.
     Alternative Flows (optional):
         - Submitted tag conflicts with a locked or already-effective control decision; request is rejected unless an authorized override workflow is used.
-        - Workflow service requests tags for an unknown scope; Context Store returns a structured not-found error.
+        - Workflow service requests tags for an unknown scope; Context system returns a structured not-found error.
