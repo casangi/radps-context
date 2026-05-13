@@ -23,13 +23,13 @@ RADPS-UC<number>: <title>
         Related current Pipeline use cases and GAPs that this RADPS use case refines or replaces.
 
     Relevant Stakeholders
-        The relevant stakeholders for this use case.
+        The people, teams, or consuming groups this use case matters to. Stakeholders are not necessarily the same as actors.
     Frequency:
         How frequently (e.g., high/medium/low) the stakeholder group anticipates encountering the use case.
     Importance:
         How important (e.g., high/medium/low) the use case is to the stakeholder group for achieving their objectives.
     Actors:
-        Actors are entities that interact with the system (user, service, worker).
+        Actors are entities that interact directly with the system (user, service, worker).
     Goals:
         Outcomes of actor interactions. Include context as necessary.
     Preconditions:

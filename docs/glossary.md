@@ -20,6 +20,8 @@ This glossary defines common distributed-systems, data-management, and context-c
 
 - **Conflict detection**: The mechanism that identifies incompatible concurrent writes (for example, overlapping partition updates based on the same stale snapshot) and rejects or serializes them.
 
+- **Context contract**: The stable, implementation-independent definition of what the context subsystem exposes and guarantees to its consumers. This includes identifiers, record shapes, invariants, transactional behavior, query and update semantics, event surfaces, and compatibility expectations.
+
 - **DAG (Directed Acyclic Graph)**: A graph of computation nodes with dependency edges, with no cycles. Used to represent planned work and explicit dependencies.
 
 - **Deterministic execution / determinism policy**: The expectation that the same inputs, software versions, and resource envelope produce the same results within numerical precision. Any deviations must be explainable from recorded provenance.
@@ -65,6 +67,8 @@ This glossary defines common distributed-systems, data-management, and context-c
 - **Provenance**: The record of inputs, parameters, software versions, execution environment, hardware/scheduler details, and lineage needed to explain and reproduce results.
 
 - **Schema’d / typed record**: A structured record with explicit fields and versions (as opposed to untyped “bags” like free-form dictionaries).
+
+- **Stakeholder**: A person, team, organization, or external consumer with an interest in the system's behavior, outputs, constraints, or operational outcomes. In these use-case documents, stakeholders are the groups the use case matters to; they are not necessarily the same as actors, which are the entities that directly interact with the system.
 
 - **Stable identifier**: A durable identifier whose meaning does not depend on process memory or local path layout (for example a run identifier, dataset identifier, or artifact identifier).
 
