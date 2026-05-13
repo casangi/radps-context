@@ -157,11 +157,11 @@ The following gap use cases capture critical system capabilities that are explic
 
 ## 3. Not Applicable to RADPS (Discarded)
 
-These use cases reflect specific architectural choices made in the design of the current pipeline and are not applicable to the future design of RADPS. 
+These use cases reflect specific architectural choices made in the design of the current pipeline and are not applicable to the future design of RADPS. Similar functionality is now covered by GAP-01.
 
-UC-13 — Provide State to Parallel Workers: This is replaced by stateless workers and asynchronous task graphs in GAP-01.
+UC-13 — Provide State to Parallel Workers
 
-UC-14 — Aggregate Results from Parallel Workers: This is replaced by asynchronous task graphs and direct, independent artifact registration in GAP-01.
+UC-14 — Aggregate Results from Parallel Workers
 
 ## 4. Context Use Cases by Implementation Area
 
