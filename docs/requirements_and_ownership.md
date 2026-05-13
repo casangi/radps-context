@@ -1,4 +1,4 @@
-# Context Use cases mapping and RADPS module ownership 
+# Context Use Cases Mapping and RADPS Module Ownership
 
 The use cases detailed in “Pipeline Context Use Cases” were derived from the current pipeline context. They were compiled to capture existing system needs and serve two primary purposes:
 
