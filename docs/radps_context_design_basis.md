@@ -1,6 +1,6 @@
 # RADPS context: mapping current Pipeline context use cases to next-gen requirements
 
-This note maps the **current Pipeline context** use cases documented in [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) to the **RADPS** execution model and derives a concrete “context contract” suitable for distributed, ACID, restartable processing.
+This note maps the **current Pipeline context** use cases documented in [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) to the **RADPS** execution model and derives a concrete context specification suitable for distributed, ACID, restartable processing.
 
 It now also aligns with [docs/requirements_and_ownership.md](requirements_and_ownership.md), which ties those current use cases and the identified GAP scenarios to specific RADPS requirements and to implementation ownership across `radps-context` and the workflow orchestration layer.
 
@@ -47,14 +47,14 @@ Within that scope, the planner and executor are **actors** that read/write conte
 The requirement-trace note introduces two design constraints that materially affect this mapping:
 
 - The GAP numbering and titles are requirement-driven and supersede older placeholder GAP labels.
-- Not every requirement-traced use case becomes a `radps-context` use case. Some are workflow-only, some are shared between workflow and context, and some require coordination with external metadata representations without changing the core context contract.
+- Not every requirement-traced use case becomes a `radps-context` use case. Some are workflow-only, some are shared between workflow and context, and some require coordination with external metadata representations without changing the core context specification.
 
 For context design, the ownership split is:
 
 | Ownership area | Requirement-traced items | Context-design implication |
 |---|---|---|
 | `radps-context` primary owner | UC-01, UC-02, UC-03, UC-04, UC-05, UC-10, UC-15, UC-16, UC-18, UC-19, GAP-08 | These map directly to durable state, artifact/query surfaces, QA/reporting views, catalog and matching behavior, and domain-specific records. |
-| Workflow orchestration primary owner | UC-07, UC-08, GAP-01 | These should influence the context contract, but they are not themselves modeled as standalone context use cases. |
+| Workflow orchestration primary owner | UC-07, UC-08, GAP-01 | These should influence the context specification, but they are not themselves modeled as standalone context use cases. |
 | Shared between workflow and `radps-context` | UC-06, UC-09, UC-11, UC-12, UC-17, GAP-03, GAP-04, GAP-05, GAP-06, GAP-07 | These require explicit context behavior plus workflow-side enforcement, replay, or delivery logic. |
 
 Two current-pipeline use cases are explicitly discarded in the requirement trace:
@@ -106,7 +106,7 @@ The biggest semantic change is multi-writer concurrency:
 
 - The current pipeline assumes in-process Python attribute access; RADPS must expose the same state through typed, language-neutral APIs.
 - External consumers (dashboards, schedulers, archive systems) must be able to query current state or subscribe to lifecycle events without scraping product files or sharing a filesystem.
-- API/schema versioning becomes part of the context contract rather than an afterthought.
+- API/schema versioning becomes part of the context specification rather than an afterthought.
 
 ### Dataset coordination: from single-master-MS assumptions to explicit matching semantics
 
@@ -122,7 +122,7 @@ The biggest semantic change is multi-writer concurrency:
   - lineage links (which node/attempt produced them)
   - one or more storage-agnostic locations (local path, shared FS path, object store URI, access policy)
 
-## Proposed RADPS “context contract” (minimum viable)
+## Proposed RADPS Context Specification (minimum viable)
 
 A workable next-gen context needs a small set of concepts with stable identifiers.
 
@@ -197,7 +197,7 @@ Concrete RADPS context use cases are drafted in [docs/radps_context_design_use_c
 
 Using the requirement-derived GAP set from [docs/requirements_and_ownership.md](requirements_and_ownership.md), the current design gaps are:
 
-- **GAP-01 Asynchronous execution of independent work**: requires snapshot isolation, transactional merges, partition-scoped writes, and conflict detection so concurrent task results integrate without corruption. This is primarily a workflow concern, but its context contract is handled mainly by RADPS-UC3 and RADPS-UC17.
+- **GAP-01 Asynchronous execution of independent work**: requires snapshot isolation, transactional merges, partition-scoped writes, and conflict detection so concurrent task results integrate without corruption. This is primarily a workflow concern, but its context specification is handled mainly by RADPS-UC3 and RADPS-UC17.
 - **GAP-02 Distributed execution without a shared filesystem**: requires artifact references decoupled from POSIX paths and a context that can serve as the system-of-record for artifact locations and access across nodes. This is handled primarily by RADPS-UC4 and RADPS-UC17.
 - **GAP-03 Provenance and reproducibility**: requires immutable per-attempt records, input hashing, and lineage capture so past runs can be precisely reproduced or audited. This is handled primarily by RADPS-UC3, RADPS-UC8, and RADPS-UC19.
 - **GAP-04 Partial re-execution / targeted stage re-run**: requires explicit dependency tracking and invalidation semantics at the context level so selective re-runs can invalidate or preserve downstream state correctly. This is handled primarily by RADPS-UC6.

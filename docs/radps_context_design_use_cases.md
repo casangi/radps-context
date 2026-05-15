@@ -69,7 +69,7 @@ Notes:
     - **Science support**: People who interpret processing results, apply domain judgment, or provide expert guidance on data-specific issues and overrides.
     - **Domain teams**: Groups responsible for domain- or observatory-specific extensions, policies, metadata, or state models.
     - **External system operators**: People responsible for integrating, operating, or supporting external systems that consume run state, events, or exported summaries.
-    - **Client developers**: People building or maintaining external or language-specific clients against the context contract.
+    - **Client developers**: People building or maintaining external or language-specific clients against the context specification.
 
 RADPS-UC1: Initialize or Load a Run Context
 
@@ -85,7 +85,7 @@ RADPS-UC1: Initialize or Load a Run Context
     Actors:
         Operator (human or automation), Planner service, Context system.
     Goals:
-        Create a new run record with stable identifiers, initial metadata, and run-level location configuration, or load an existing run for resume. The context must be driver-agnostic: any orchestration front-end (automated batch, interactive session, recipe evaluator) must produce an equivalent run record, and the context contract must remain stable across drivers (Pipeline UC-11). Run identity, driver metadata, and artifact location/layout policy must be first-class context data so save/restore and export workflows remain portable (Pipeline UC-12, UC-19).
+        Create a new run record with stable identifiers, initial metadata, and run-level location configuration, or load an existing run for resume. The context must be driver-agnostic: any orchestration front-end (automated batch, interactive session, recipe evaluator) must produce an equivalent run record, and the context specification must remain stable across drivers (Pipeline UC-11). Run identity, driver metadata, and artifact location/layout policy must be first-class context data so save/restore and export workflows remain portable (Pipeline UC-12, UC-19).
     Preconditions:
         Inputs are identified (dataset IDs/paths); caller is authorized to create or access the run.
     Postconditions / Outputs:
@@ -565,7 +565,7 @@ RADPS-UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
     Actors:
         Worker/planner, Context system.
     Goals:
-        Support domain-specific state without reintroducing untyped “state bags”, while keeping the core context contract stable.
+        Support domain-specific state without reintroducing untyped “state bags”, while keeping the core context specification stable.
     Preconditions:
         Extension schema/type is registered/known for the run; caller is authorized.
     Postconditions / Outputs:
@@ -833,7 +833,7 @@ RADPS-UC24: Persist Execution-Control Tags for Workflow Decisions
     Preconditions:
         Target run/dataset/stage scope exists; caller is authorized to create or update execution-control tags.
     Postconditions / Outputs:
-        Tag records exist with scope, value, rationale, author, and lifecycle metadata; workflow consumers can query them through the normal context contract.
+        Tag records exist with scope, value, rationale, author, and lifecycle metadata; workflow consumers can query them through the normal context specification.
     Context Data / Artifacts:
         Writes execution-control tag records and rationale/annotation metadata; reads existing tag state for conflict detection and workflow queries.
     Transaction / Idempotency Notes:

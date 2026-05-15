@@ -1,6 +1,6 @@
 # Glossary (RADPS context docs)
 
-This glossary defines common distributed-systems, data-management, and context-contract terms used across the RADPS context documentation.
+This glossary defines common distributed-systems, data-management, and context-specification terms used across the RADPS context documentation.
 
 - **ACID**: Database transaction properties.
   - **Atomicity**: a multi-step update is “all or nothing”.
@@ -20,7 +20,7 @@ This glossary defines common distributed-systems, data-management, and context-c
 
 - **Conflict detection**: The mechanism that identifies incompatible concurrent writes (for example, overlapping partition updates based on the same stale snapshot) and rejects or serializes them.
 
-- **Context contract**: The stable, implementation-independent definition of what the context subsystem exposes and guarantees to its consumers. This includes identifiers, record shapes, invariants, transactional behavior, query and update semantics, event surfaces, and compatibility expectations.
+- **Context specification**: The stable, implementation-independent definition of what the context subsystem exposes and guarantees to its consumers. This includes identifiers, record shapes, invariants, transactional behavior, query and update semantics, event surfaces, and compatibility expectations.
 
 - **DAG (Directed Acyclic Graph)**: A graph of computation nodes with dependency edges, with no cycles. Used to represent planned work and explicit dependencies.
 
