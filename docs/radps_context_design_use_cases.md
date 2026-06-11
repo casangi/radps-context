@@ -1,4 +1,4 @@
-RADPS Use Case Template (Context Design)
+# RADPS Use Case Template (Context Design)
 
 Adapted from “Use Case Modeling” by Kurt Bittner and Ian Spence.
 
