@@ -5,11 +5,11 @@ The use cases detailed in “Pipeline Context Use Cases” were derived from the
 1. **Requirement Evaluation:** To identify context capabilities that could then be evaluated for inclusion in `radps-context` to satisfy RADPS requirements.  
 2. **Knowledge Transfer:** To ensure valuable lessons learned from previous pipeline development are carried forward to RADPS when applicable, even if they do not map to a strict requirement.
 
-This document builds off of the current pipeline use cases document by evaluating each use case on two fronts: if each use case satisfies a related RADPS requirement, and if so, which architectural component should be responsible for its implementation. Currently, we are assessing implementation across `radps-context` and the Workflow Orchestration System (currently Prefect), with other layers potentially added in the future. xradio was not included in this assessment for the following reason: The workflow orchestrator can have responsibilities allocated to it that radps-context would otherwise hold, whereas the interactions with xradio will be internal to radps-context and impact how it fetches, e.g. observation metadata, not what it's responsible for. 
+This document builds off of the current pipeline use cases document by evaluating each use case on two fronts: if each use case satisfies a related RADPS requirement, and if so, which architectural component should be responsible for it. Currently, we are assessing context responsibility allocation across `radps-context` and the Workflow Orchestration System (currently Prefect), with other layers potentially added in the future. After an initial investigation, `xradio` was not included in his assessment. While the workflow orchestrator can have responsibilities allocated to it that `radps-context` would otherwise hold, the interactions with `xradio` will be internal to `radps-context` and impact how it fetches, e.g. observation metadata, not what it's responsible for. 
 
 `radps-context` will be a software component of RADPS responsible for maintaining and providing access to pipeline processing domain state — including observation metadata, calibration state, imaging state, and produced artifacts — throughout the lifecycle of a pipeline run. The workflow orchestration layer will manage task scheduling, execution, and non-domain-specific state.
 
-Based on this evaluation, the use cases are first mapped to RADPS requirements (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated. In Section 3, current context use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated implementation component. For use cases that were not cleanly separable between `radps-context` and the workflow orchestration, the responsibilities of each component are called out.
+Based on this evaluation, the use cases are first mapped to RADPS requirements (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated. In Section 3, current context use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated responsible component. For use cases that were not cleanly separable between `radps-context` and the workflow orchestration, the responsibilities of each component are called out.
 
 ## 1. Context UCs and RADPS Requirements
 
@@ -32,7 +32,8 @@ UC-05 — Manage Imaging State
 RADPS Requirements: ALMA-TR53
 
 UC-06 — Register and Query Produced Image Products  
-RADPS Requirements: ALMA-TR51.1, ALMA-TR51.2, ALMA-TR65, ALMA-TR66
+RADPS Requirements: ALMA-TR51.1, ALMA-TR51.2, ALMA-TR65
+Related to ALMA-TR66, but this requirement is out of scope. 
 
 UC-07 — Track Current Execution Progress  
 RADPS Requirements: CSS9037, CSS9034, CSS9064.1
@@ -163,11 +164,11 @@ UC-13 — Provide State to Parallel Workers
 
 UC-14 — Aggregate Results from Parallel Workers
 
-## 4. Context Use Cases by Implementation Area
+## 4. Context Use Cases by Responsibility Allocation
 
-### `radps-context` package only
+### `radps-context` component only
 
-These use cases do not have any obvious overlap with workflow orchestration functionality. While they *interact* with the workflow orchestration in some cases, the functionality will need to be implemented by the `radps-context` package. 
+These use cases do not have any obvious overlap with workflow orchestration functionality. While they *interact* with the workflow orchestration in some cases, the functionality will need to be implemented by the `radps-context` component. 
 
 UC-01 — Populate, Access, and Provide Observation Metadata  
 UC-02 — Cross-MS Metadata Matching and Lookup  
