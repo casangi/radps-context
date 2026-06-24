@@ -3,9 +3,11 @@
 The use cases detailed in “Pipeline Context Use Cases” were derived from the current pipeline context. They were compiled to capture existing system needs and serve two primary purposes:
 
 1. **Requirement Evaluation:** To identify context capabilities that could then be evaluated for inclusion in `radps-context` to satisfy RADPS requirements.  
-2. **Knowledge Transfer:** To ensure valuable lessons learned from previous pipeline development are carried forward to RADPS when applicable, even if they do not map to a strict requirement.
+2. **Knowledge Transfer:** To ensure valuable lessons learned from previous pipeline development are carried forward to RADPS when applicable, even if they do not map to a strict requirement. 
 
-This document builds off of the current pipeline use cases document by evaluating each use case on two fronts: if each use case satisfies a related RADPS requirement, and if so, which architectural component should be responsible for it. Currently, we are assessing context responsibility allocation across `radps-context` and the Workflow Orchestration System (currently Prefect), with other layers potentially added in the future. After an initial investigation, `xradio` was not included in this assessment. While the workflow orchestrator can have responsibilities allocated to it that `radps-context` would otherwise hold, the interactions with `xradio` will be internal to `radps-context` and impact how it fetches, e.g. observation metadata, not what it's responsible for. 
+In the current pipeline, all of these capabilities are provided by a single context system with no separate workflow orchestrator or other components: domain state, execution tracking, and inter-stage communication are all handled by this one system. A central goal of the RADPS redesign is to separate those concerns. This document builds off of the current pipeline use cases document by evaluating each use case on two fronts: whether it satisfies a related RADPS requirement, and if so, which architectural component should be responsible for it -- `radps-context` and the workflow orchestration layer (currently Prefect), with other layers potentially added in the future.
+
+After an initial investigation, `xradio` was not included in this assessment. While the workflow orchestrator can be allocated responsibilities that` radps-context` would otherwise hold, the interactions with `xradio` will be internal to `radps-context` and affect how it fetches, e.g., observation metadata — not what it is responsible for.
 
 `radps-context` will be a software component of RADPS responsible for maintaining and providing access to pipeline processing domain state — including observation metadata, calibration state, imaging state, and produced artifacts — throughout the lifecycle of a pipeline run. The workflow orchestration layer will manage task scheduling, execution, and non-domain-specific state.
 
@@ -103,7 +105,7 @@ The following gap use cases capture critical system capabilities that are explic
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, auditor, reproducibility tooling |
-| **Summary** | The context must record sufficient provenance – software versions, task parameters, per-stage state, hardware and execution-environment details (CPU architecture, node/cluster specification, kernel, workload-manager/scheduler configuration, and relevant scheduler limits) — to enable precise reproduction and audit of past runs. |
+| **Summary** | The system must record sufficient provenance to enable precise reproduction and audit of past runs. This provenance is of two kinds: domain-specific (which datasets, calibrations, and products were derived from which inputs), and execution-environment detail (software versions, task parameters, per-stage execution state, CPU architecture, node/cluster specification, kernel, workload-manager/scheduler configuration, and relevant scheduler limits).
 | **Postconditions** | Any past processing step can be reproduced or audited using the recorded provenance chain. |
 | **RADPS requirements** | ALMA-TR103, ALMA-TR104, ALMA-TR105 |
 
