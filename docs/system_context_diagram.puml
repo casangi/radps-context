@@ -1,0 +1,38 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' --- tags ---
+AddElementTag("scope", $bgColor="#E8F5F0", $borderColor="#0F6E56", $fontColor="#0F6E56")
+AddElementTag("build", $bgColor="#B8E0D2", $borderColor="#0F6E56")
+
+Person(operator, "Pipeline operator", "operations")
+Person(developer, "Developer", "dev & debug")
+
+System_Ext(orchestrator, "Orchestrator", "Prefect (3rd-party)", $tags="scope")
+System_Ext(reporting, "Reporting", "data reduction report, weblog, stats")
+System_Ext(archive, "Archive", "external system")
+
+System_Boundary(pipeline, "flowviper") {
+  Container(radps_context, "radps-context", "domain state + artifact references", $tags="scope+build")
+  Container(tasks, "Pipeline tasks", "data processing")
+  Container(heuristics, "Heuristics", "decision logic")
+  Container(qa, "QA framework", "quality scores")
+  ContainerDb(artifacts, "Artifacts", "calibration tables, datasets")
+}
+
+'--- relationships ---
+Rel(operator, orchestrator, "1 · runs the pipeline")
+Rel(operator, radps_context, "2 · direct restore & inspect")
+Rel(orchestrator, tasks, "3 · schedules & executes")
+Rel_U(orchestrator, radps_context, "4 · control tags out; exec record in")
+Rel(tasks, radps_context, "5 · read state; update state")
+Rel(heuristics, radps_context, "6 · query state")
+Rel(qa, radps_context, "7 · read state; write scores")
+Rel(reporting, radps_context, "8 · read-only state")
+Rel(radps_context, artifacts, "9 · holds references to")
+Rel(radps_context, archive, "10 · export; init from archive")
+Rel(developer, radps_context, "11 · inspect & debug")
+
+SHOW_LEGEND()
+
+@enduml
