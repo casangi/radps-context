@@ -2,8 +2,6 @@
 
 Adapted from “Use Case Modeling” by Kurt Bittner and Ian Spence.
 
-Aim for less than 3 pages per use case. The goal here is to capture the major features of the individual use case, not every single detail. Additional details will be captured later in the design phase.
-
 This version is tuned for **Pipeline Context** design. In a distributed system, the “hard” requirements are often in:
 
 - what durable state changes
@@ -69,7 +67,6 @@ Notes:
     - **Science support**: People who interpret processing results, apply domain judgment, or provide expert guidance on data-specific issues and overrides.
     - **Domain teams**: Groups responsible for domain- or observatory-specific extensions, policies, metadata, or state models.
     - **External system operators**: People responsible for integrating, operating, or supporting external systems that consume run state, events, or exported summaries.
-    - **Client developers**: People building or maintaining external or language-specific clients against the context specification.
 
 RADPS-UC1: Initialize or Load a Run Context
 
@@ -375,15 +372,15 @@ RADPS-UC10: Query Dataset / Observation Catalog (Read-Only View)
     Importance:
         High.
     Actors:
-        Worker, QA/reporting service, Context system.
+        Worker, heuristic service, QA/reporting service, external consumer/tool, Context system.
     Goals:
-        Provide fast, consistent access to observation metadata (catalog inventory, fields, SPWs, scans, data-type metadata, and cross-dataset identity/matching records) required by tasks and reporting. This is the read-only catalog surface underlying more specialized matching workflows such as UC22.
+        Provide fast, consistent access to observation metadata (catalog inventory, fields, SPWs, scans, data-type metadata, and cross-dataset identity/matching records) required by tasks, heuristics, external consumers, and reporting. This is the read-only catalog surface underlying more specialized matching workflows such as UC21. Returned records must be typed and stable enough that consumers do not depend on storage layout or implementation details.
     Preconditions:
-        A run record exists; dataset inventory has been registered in context.
+        A run record exists; dataset inventory has been registered in context; the requested catalog schema/version is supported.
     Postconditions / Outputs:
-        No new durable state is required; consumers obtain a consistent view of metadata.
+        No new durable state is required; consumers obtain a consistent typed view of metadata and know which schema/contract version was used.
     Context Data / Artifacts:
-        Reads Dataset/Observation Catalog records, data-type metadata, and cross-dataset identity/matching tables.
+        Reads Dataset/Observation Catalog records, data-type metadata, and cross-dataset identity/matching tables; exposes schema descriptors and typed errors for consumer-facing catalog queries.
     Transaction / Idempotency Notes:
         Reads should be served from a consistent snapshot (e.g., transaction-level or checkpoint-level read).
     Observability / Audit:
@@ -393,6 +390,7 @@ RADPS-UC10: Query Dataset / Observation Catalog (Read-Only View)
         2. Context system returns typed metadata records.
     Alternative Flows (optional):
         - Requested scope not found; return a structured “unknown dataset/partition” error.
+        - Requested schema version is unsupported; return compatible versions or upgrade guidance.
 
 RADPS-UC11: Apply Transactional Calibration State Update
 
@@ -468,25 +466,26 @@ RADPS-UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
     Importance:
         High.
     Actors:
-        QA/reporting service, debugging/inspection tools, CI harness, Context system.
+        QA/reporting service, debugging/inspection tools, CI harness, external consumer/tool, Context system.
     Goals:
-        Provide a consistent read view of run state and artifact registry for rendering, QA, export, and inspection without depending on worker memory. Must also support debugging use cases: diagnosing failures (what ran, what data was loaded, what state was produced), validating deterministic outputs, and surfacing failures beyond raw task exceptions (Pipeline UC-15, UC-16, UC-17, UC-19).
+        Provide a consistent read view of run state and artifact registry for rendering, QA, export, and inspection without depending on worker memory. Must also support debugging use cases: diagnosing failures (what ran, what data was loaded, what state was produced), validating deterministic outputs, and surfacing failures beyond raw task exceptions (Pipeline UC-15, UC-16, UC-17, UC-19). Snapshot queries should be available through a stable, typed contract for reporting tools, external dashboards, and inspection clients.
     Preconditions:
-        A checkpoint exists or a consistent snapshot boundary is defined (e.g., “as of attempt X completion”).
+        A checkpoint exists or a consistent snapshot boundary is defined (e.g., “as of attempt X completion”); the requested snapshot schema/version is supported.
     Postconditions / Outputs:
-        Snapshot view is consumable; optional derived products (reports) can be produced and registered. Debugging tools can traverse the snapshot without requiring access to the worker runtime.
+        Snapshot view is consumable; optional derived products (reports) can be produced and registered. Debugging tools can traverse the snapshot without requiring access to the worker runtime. Consumer-facing responses identify the schema/contract version used.
     Context Data / Artifacts:
         Reads ledger + registry + annotations + execution history (UC3).
     Transaction / Idempotency Notes:
         Snapshot reads must be consistent; re-rendering should be deterministic within declared policy.
     Observability / Audit:
-        Record snapshot boundary identifiers used by the report or inspection session.
+        Record snapshot boundary identifiers and schema versions used by the report or inspection session.
     Basic Flow:
         1. Service requests a snapshot for the run at a boundary.
         2. Context system serves a consistent view for queries.
     Alternative Flows (optional):
         - Boundary not available (no checkpoint); service may request “latest committed” with caveats recorded.
         - Debugging/CI tool queries snapshot to compare outputs across runs or validate expected artifacts and QA outcomes.
+        - Requested snapshot schema is unsupported; return compatible versions or a typed incompatibility error.
 
 RADPS-UC14: Resolve Named Outputs Instead of Stage-Index Walking
 
@@ -500,21 +499,21 @@ RADPS-UC14: Resolve Named Outputs Instead of Stage-Index Walking
     Importance:
         High.
     Actors:
-        Worker, Context system.
+        Worker, downstream consumer/tool, Context system.
     Goals:
-        Allow downstream tasks to discover upstream outputs by stable keys (names/types/scopes) instead of walking an ordered results list.
+        Allow downstream tasks and consumers to discover upstream outputs by stable keys (names/types/scopes) instead of walking an ordered results list or depending on storage layout.
     Preconditions:
         Upstream artifacts/records have been registered with names/types/scopes.
     Postconditions / Outputs:
-        Downstream consumers can bind required inputs deterministically.
+        Downstream consumers can bind required inputs deterministically through typed artifact/output records.
     Context Data / Artifacts:
-        Reads from artifact registry and/or typed output tables keyed by logical output name + scope.
+        Reads from artifact registry and/or typed output tables keyed by logical output name + scope; returns artifact identifiers, metadata, and storage-agnostic location/access references.
     Transaction / Idempotency Notes:
         Output registration must be idempotent; lookups must be consistent under concurrency.
     Observability / Audit:
         Optional: record bindings for provenance (which artifact IDs satisfied which logical inputs).
     Basic Flow:
-        1. Consumer requests “latest output of type X for scope Y” (or a specific version).
+        1. Consumer requests “latest output of type X for scope Y” (or a specific version) through the supported context contract.
         2. Context system returns artifact IDs and metadata.
     Alternative Flows (optional):
         - Output not found; consumer fails fast with a structured missing-dependency error.
@@ -597,17 +596,17 @@ RADPS-UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Executi
     Actors:
         Executor/worker, Context system.
     Goals:
-        Allow workers to read a consistent snapshot of required context state while ensuring all writes return through ACID transactions rather than worker-local serialized state, including asynchronous and overlapping execution of independent work across partitions.
+        Allow workers to read a consistent snapshot of required context state while ensuring all writes return through ACID transactions rather than worker-local serialized state, including asynchronous and overlapping execution of independent work across partitions. The same transactional semantics must be available through the supported context contract so workers are not coupled to storage layout or process-local implementation details.
     Preconditions:
-        A run record exists; a snapshot boundary exists (checkpoint, plan revision boundary, or latest committed state); worker is authorized.
+        A run record exists; a snapshot boundary exists (checkpoint, plan revision boundary, or latest committed state); worker is authorized; the requested operation is exposed by the supported contract.
     Postconditions / Outputs:
-        Worker obtains a snapshot token or equivalent boundary reference; all updates are committed as transactional patches linked to the producing attempt.
+        Worker obtains a snapshot token or equivalent boundary reference; all updates are committed as transactional patches linked to the producing attempt; responses identify the schema/contract version used where relevant.
     Context Data / Artifacts:
         Reads snapshot views of ledger/catalog/state; writes attempt state, artifacts, and patches.
     Transaction / Idempotency Notes:
-        Snapshot reads must be consistent; write-back must be ACID with conflict detection and partition-scoped merges where possible. All submissions must be idempotent under retry.
+        Snapshot reads must be consistent; write-back must be ACID with conflict detection and partition-scoped merges where possible. All submissions must be idempotent under retry, including calls made through external consumers using idempotency keys.
     Observability / Audit:
-        Record snapshot boundary and patch application events; link patches to the worker identity and attempt.
+        Record snapshot boundary, patch application events, caller identity, schema version, and idempotency keys where relevant; link patches to the worker identity and attempt.
     Basic Flow:
         1. Worker requests a snapshot token for its node/partition scope.
         2. Worker performs computation using snapshot reads.
@@ -615,6 +614,7 @@ RADPS-UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Executi
         4. Context system commits patches and updates derived state.
     Alternative Flows (optional):
         - Write conflict detected; worker must refresh snapshot and retry with a new base version.
+        - Consumer requests an operation not exposed by the supported contract; request is rejected with a typed capability error.
 
 RADPS-UC18: Publish Run State to External Systems
 
@@ -630,17 +630,17 @@ RADPS-UC18: Publish Run State to External Systems
     Actors:
         External consumer/service, Context system, notification dispatcher.
     Goals:
-        Provide timely, stable access to current processing state, lifecycle events, and summary views without requiring consumers to scrape product files or worker-local storage. The design must support both pull-style queries and push-style subscriptions for selected lifecycle events.
+        Provide timely, stable access to current processing state, lifecycle events, and summary views without requiring consumers to scrape product files or worker-local storage. The design must support both pull-style queries and push-style subscriptions for selected lifecycle events through stable, typed contracts.
     Preconditions:
         A run record exists; consumer or subscription is authorized; the requested summary or event schema version is supported.
     Postconditions / Outputs:
-        External consumers can query current state or receive subscribed notifications; delivery attempts and subscription state are recorded durably.
+        External consumers can query current state or receive subscribed notifications; delivery attempts and subscription state are recorded durably; responses and notifications identify the schema/contract version used.
     Context Data / Artifacts:
-        Reads run ledger, artifact registry, QA records, and summary views; writes subscription definitions, delivery records, and exported summary/manifest artifacts when required.
+        Reads run ledger, artifact registry, QA records, and summary views; writes subscription definitions, delivery records, and exported summary/manifest artifacts when required; publishes schema descriptors and typed error codes for external integration contracts.
     Transaction / Idempotency Notes:
         Subscription changes and delivery-state updates must be atomic; notifications must be idempotent and retryable.
     Observability / Audit:
-        Emit SubscriptionCreated/Updated, NotificationDispatched, and NotificationFailed events with consumer identity and schema version.
+        Emit SubscriptionCreated/Updated, NotificationDispatched, NotificationFailed, and API access events with consumer identity and schema version.
     Basic Flow:
         1. Consumer registers or uses an existing subscription/query contract for selected run events or summaries.
         2. Context system serves query results or dispatches notifications when the selected events occur.
@@ -682,40 +682,7 @@ RADPS-UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
         - Some hashes are unavailable at completion time; system records partial provenance with explicit missing-field markers and may block checkpoint/export per policy.
         - Environment details change mid-run; new attempts record new environment versions rather than mutating prior provenance.
 
-RADPS-UC20: Serve a Language-Neutral Context API
-
-    Current Pipeline Cross-References:
-        UC-15, UC-19, GAP-05.
-
-    Relevant Stakeholders
-        Client developers, Pipeline developers, External system operators.
-    Frequency:
-        High.
-    Importance:
-        High.
-    Actors:
-        Client application, Context API service, Context system.
-    Goals:
-        Provide a stable, typed, language-neutral API for querying and updating context state without coupling clients to storage layout or Python object models. Mission-critical metadata, heuristics inputs, transactional workflow operations, and artifact lookup must be covered first; higher-level QA/reporting endpoints may be layered separately.
-    Preconditions:
-        An API schema/version is published; client is authorized; requested operation is allowed for the client role.
-    Postconditions / Outputs:
-        Client completes a query or mutation through a stable contract; response metadata indicates the schema/contract version used.
-    Context Data / Artifacts:
-        Reads/writes the same ledger, catalog, state, and artifact records used by in-process services; publishes schema descriptors and typed error codes.
-    Transaction / Idempotency Notes:
-        Mutating API calls must preserve the same ACID/idempotency guarantees as internal callers; schema evolution must be versioned and backward-compatible within the supported window.
-    Observability / Audit:
-        Record API access, schema version, caller identity, and mutation idempotency keys where relevant.
-    Basic Flow:
-        1. Client queries service metadata or binds to a published schema version.
-        2. Client submits a typed query or mutation request.
-        3. Context service validates authorization/schema compatibility, executes the operation, and returns typed records or error codes.
-    Alternative Flows (optional):
-        - Requested API version is unsupported; service returns compatible versions or upgrade guidance.
-        - Client requests an operation not exposed by the public contract; service rejects it with a typed capability error.
-
-RADPS-UC21: Register Incremental Dataset Updates and Versioned Results
+RADPS-UC20: Register Incremental Dataset Updates and Versioned Results
 
     Current Pipeline Cross-References:
         UC-01, UC-12, GAP-04.
@@ -748,7 +715,7 @@ RADPS-UC21: Register Incremental Dataset Updates and Versioned Results
         - Incoming data conflicts with an existing immutable dataset version; system rejects it or records it as a separate branch/version per policy.
         - Incremental registration arrives while dependent work is running; system serializes, branches, or defers the update according to policy.
 
-RADPS-UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
+RADPS-UC21: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
 
     Current Pipeline Cross-References:
         UC-02, UC-18, GAP-08.
@@ -781,7 +748,7 @@ RADPS-UC22: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
         - Multiple candidate matches remain after policy evaluation; service returns an ambiguity error or candidate set requiring heuristic/user choice.
         - An override conflicts with an existing locked mapping; service rejects it unless an authorized replacement workflow is used.
 
-RADPS-UC23: Initialize Context from Intermediate Archival State
+RADPS-UC22: Initialize Context from Intermediate Archival State
 
     Current Pipeline Cross-References:
         UC-12, GAP-06.
@@ -815,7 +782,7 @@ RADPS-UC23: Initialize Context from Intermediate Archival State
         - Imported products are insufficient to construct a valid boundary; initialization is rejected with a list of missing state elements.
         - Imported records conflict with immutable run state already present; system rejects the import or requires a separate branch/run per policy.
 
-RADPS-UC24: Persist Execution-Control Tags for Workflow Decisions
+RADPS-UC23: Persist Execution-Control Tags for Workflow Decisions
 
     Current Pipeline Cross-References:
         GAP-07.

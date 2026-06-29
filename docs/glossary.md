@@ -44,8 +44,6 @@ This glossary defines common distributed-systems, data-management, and context-s
   - **Read-only snapshot**: a consistent view of data at a defined boundary (for example, “as of checkpoint X”).
   - **Snapshot isolation**: a common isolation model where each transaction reads from a snapshot and writes commit if no conflicting writes occurred.
 
-- **Language-neutral API**: A stable, typed contract that allows clients in any supported language to query or update context state without depending on storage layout or Python objects.
-
 - **Ledger (run ledger)**: The durable run-scoped record of plans, nodes, attempts, checkpoints, subscriptions, and other state transitions.
 
 - **Lineage**: Links that explain how an artifact/result was produced (inputs consumed, node/attempt that produced it, and upstream artifacts).
@@ -54,7 +52,7 @@ This glossary defines common distributed-systems, data-management, and context-s
 
 - **MeasurementSet v4 (MSv4)**: The next-generation MeasurementSet representation targeted for RADPS. The RADPS observation catalog may be normalized around this representation even when inputs begin as ASDM or another archive format.
 
-- **Middleware/API layer**: The service boundary that exposes typed context operations, schema/version negotiation, authorization, and error handling to internal and external clients.
+- **Middleware/API layer**: The service boundary that exposes typed context operations, schema/version negotiation, authorization, and error handling to internal and external consumers.
 
 - **Partition / scope**: A key that identifies a subset of work/state (for example by dataset, field, SPW, scan, or data type). Partition-scoped updates reduce contention and enable concurrency.
 
@@ -69,6 +67,8 @@ This glossary defines common distributed-systems, data-management, and context-s
 - **Schema’d / typed record**: A structured record with explicit fields and versions (as opposed to untyped “bags” like free-form dictionaries).
 
 - **Stakeholder**: A person, team, organization, or external consumer with an interest in the system's behavior, outputs, constraints, or operational outcomes. In these use-case documents, stakeholders are the groups the use case matters to; they are not necessarily the same as actors, which are the entities that directly interact with the system.
+
+- **Stable context interface**: A typed contract for querying, updating, and subscribing to context state without depending on storage layout or process-local implementation details. This includes record schemas, compatibility expectations, authorization behavior, and typed error handling.
 
 - **Stable identifier**: A durable identifier whose meaning does not depend on process memory or local path layout (for example a run identifier, dataset identifier, or artifact identifier).
 
@@ -86,7 +86,7 @@ This glossary defines common distributed-systems, data-management, and context-s
 
 - **CASA**: Common Astronomy Software Applications; the current pipeline runs “inside CASA” (Python + CASA tools), and many tasks assume CASA data models and IDs.
 
-- **Context**: A long-lived, in-process Python object that acts as session state + shared mutable state + persistence unit (via pickle). In the current pipeline design it also carries convenience methods and domain-model handles such as the observation catalog.
+- **Context**: A long-lived, in-process object that acts as session state + shared mutable state + persistence unit (via pickle). In the current pipeline design it also carries convenience methods and domain-model handles such as the observation catalog.
 
 - **Event bus**: An in-process publish/subscribe mechanism for lifecycle markers (task start/complete, result acceptance). It exists today but is not the primary state mutation channel.
 

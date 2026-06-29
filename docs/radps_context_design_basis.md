@@ -13,13 +13,13 @@ See also:
 ## Assumptions (from RADPS discussions)
 
 - **Domains**: ALMA WSU, ngVLA, VLBI, etc.
-- **Data model**: archive inputs (e.g., ASDM) convert to a normalized observation representation; Python ecosystem emphasis remains important, but non-Python clients must also be supported.
+- **Data model**: archive inputs (e.g., ASDM) convert to a normalized observation representation.
 - **Scale**: multi-TB artifacts, very large spectral cubes (up to ~1.2M channels), significantly increased SPWs. These figures should be treated as **top-end outputs**, not the typical case.
 - **Efficiency (common case)**: the context design must scale to larger datasets, but should remain efficient for smaller/more common runs; avoid “worst-case-first” tradeoffs that significantly degrade day-to-day performance.
 - **Execution**: planner service generates a **DAG at runtime**; execution is distributed, with concurrent workers and overlapping work whenever dependencies allow.
 - **State semantics**: shared state must have **ACID semantics** (multi-writer correctness is required).
 - **Operations**: intermediates must remain **locally available** (for pause/inspect/manual intervention); resumability, targeted reruns, and incremental updates are required.
-- **Interfaces**: external systems and non-Python clients need stable, language-neutral query and event interfaces to the current processing state.
+- **Interfaces**: workers and external systems need stable, typed query, update, and event interfaces to the current processing state.
 - **Platform**: execution must remain portable across current and future infrastructure choices.
 - **Provenance**: must emit machine-readable manifests/audit trails; determinism is “within numerical precision” and depends on identical inputs, versions, hardware, and scheduler/resource envelopes.
 
@@ -46,7 +46,6 @@ Within that scope, the planner and executor are **actors** that read/write conte
 
 The requirement-trace note introduces two design constraints that materially affect this mapping:
 
-- The GAP numbering and titles are requirement-driven and supersede older placeholder GAP labels.
 - Not every requirement-traced use case becomes a `radps-context` use case. Some are workflow-only, some are shared between workflow and context, and some require coordination with external metadata representations without changing the core context specification.
 
 For context design, the ownership split is:
@@ -69,16 +68,16 @@ The Pipeline analysis still collapses to 15 broad responsibilities. The table be
 | # | Pipeline Responsibility | Current Pipeline UCs | RADPS UCs / GAPs | Notes |
 |---|---|---|---|---|
 | 1 | Static Observation & Project Data | UC-01, UC-03 | RADPS-UC1, RADPS-UC10 | Stable identifiers and cross-dataset identity records replace MS-name lookups and single-master assumptions. |
-| 2 | Mutable Observation State | UC-01, UC-02 | RADPS-UC10, RADPS-UC21, RADPS-UC22 | Derived datasets are registered with lineage and version history instead of mutating the original inventory in place. |
+| 2 | Mutable Observation State | UC-01, UC-02 | RADPS-UC10, RADPS-UC20, RADPS-UC21 | Derived datasets are registered with lineage and version history instead of mutating the original inventory in place. |
 | 3 | Path Management | UC-12, UC-19 | RADPS-UC1, RADPS-UC4, GAP-02 | Paths become artifact locations or access policies, not embedded process-local strings. |
 | 4 | Imaging State Management | UC-05 | RADPS-UC12 | Typed, versioned, partition-scoped. |
 | 5 | Calibration State Management | UC-04 | RADPS-UC11 | Transactional, multi-entry, versioned, removable. |
 | 6 | Image Library Management | UC-06 | RADPS-UC4, RADPS-UC8 | Separate views (science/cal/RMS/sub-product) can be layered over the registry if needed. |
-| 7 | Session Persistence | UC-11, UC-12 | RADPS-UC1, RADPS-UC5, RADPS-UC6, RADPS-UC23 | Explicit persisted state replaces implementation-bound session snapshots and supports portable restore semantics. |
+| 7 | Session Persistence | UC-11, UC-12 | RADPS-UC1, RADPS-UC5, RADPS-UC6, RADPS-UC22 | Explicit persisted state replaces implementation-bound session snapshots and supports portable restore semantics. |
 | 8 | Parallel Distribution | UC-13, UC-14 | RADPS-UC17, GAP-01, GAP-02 | Consistent snapshot reads and ACID write-back support overlapping execution. |
 | 9 | Inter-Task Data Passing | UC-09 | RADPS-UC14, RADPS-UC17 | Replaces implicit state merging plus results-list walking with named outputs and transactional updates. |
 | 10 | Stage Tracking & Result Accumulation | UC-07, UC-08 | RADPS-UC2, RADPS-UC3 | Current node state plus ordered attempt history replaces current-pipeline stage numbering as the main execution record. |
-| 11 | Reporting & Export Support | UC-15, UC-19 | RADPS-UC8, RADPS-UC13, RADPS-UC18, RADPS-UC20 | Stable interfaces support weblogs, manifests, scripts, dashboards, and product packaging. |
+| 11 | Reporting & Export Support | UC-15, UC-19 | RADPS-UC8, RADPS-UC13, RADPS-UC18 | Stable interfaces support weblogs, manifests, scripts, dashboards, and product packaging. |
 | 12 | QA Score Storage | UC-16 | RADPS-UC3, RADPS-UC13 | Read-only context snapshots for QA handlers retain per-selection detail. |
 | 13 | Debuggability / Inspectability | UC-17 | RADPS-UC13, RADPS-UC15, RADPS-UC19 | Queryable inspection surfaces replace opaque serialized-state inspection as the primary debugging interface. |
 | 14 | Telescope- and Array-Specific State | UC-18 | RADPS-UC16 | Typed, versioned, per-dataset scoped. |
@@ -98,13 +97,13 @@ The Pipeline analysis still collapses to 15 broad responsibilities. The table be
 
 The biggest semantic change is multi-writer concurrency:
 
-- The “context” is no longer a Python object that tasks mutate directly.
+- The “context” is no longer an in-process mutable object that tasks modify directly.
 - Instead, tasks emit **transactional updates** (events or patches) to a run-scoped store.
 - Consumers (planner, UI, report generators, operators, external dashboards) read from the same consistent store.
 
-### Interfaces: from in-process Python access to stable APIs and event feeds
+### Interfaces: from in-process access to stable APIs and event feeds
 
-- The current pipeline assumes in-process Python attribute access; RADPS must expose the same state through typed, language-neutral APIs.
+- The current pipeline assumes in-process attribute access; RADPS must expose the same state through stable, typed APIs.
 - External consumers (dashboards, schedulers, archive systems) must be able to query current state or subscribe to lifecycle events without scraping product files or sharing a filesystem.
 - API/schema versioning becomes part of the context specification rather than an afterthought.
 
@@ -191,7 +190,7 @@ Concrete RADPS context use cases are drafted in [docs/radps_context_design_use_c
 - run + plan lifecycle (RADPS-UC1-RADPS-UC3)
 - artifact + checkpoint lifecycle (RADPS-UC4-RADPS-UC9)
 - “internal pipeline interactions” equivalents: catalog queries, calibration/imaging state, snapshots, named outputs, event log, domain extensions, and worker snapshot/write-back semantics (RADPS-UC10-RADPS-UC17)
-- external integrations, reproducibility envelopes, language-neutral APIs, incremental processing, initialization from intermediate state, execution-control tags, and heterogeneous matching semantics (RADPS-UC18-RADPS-UC24)
+- external integrations, reproducibility envelopes, incremental processing, initialization from intermediate state, execution-control tags, and heterogeneous matching semantics (RADPS-UC18-RADPS-UC23), with stable typed-interface constraints distributed across the concrete query, mutation, and subscription use cases
 
 ## “Missing today” capabilities (GAPs) and RADPS context implications
 
@@ -202,9 +201,9 @@ Using the requirement-derived GAP set from [docs/requirements_and_ownership.md](
 - **GAP-03 Provenance and reproducibility**: requires immutable per-attempt records, input hashing, and lineage capture so past runs can be precisely reproduced or audited. This is handled primarily by RADPS-UC3, RADPS-UC8, and RADPS-UC19.
 - **GAP-04 Partial re-execution / targeted stage re-run**: requires explicit dependency tracking and invalidation semantics at the context level so selective re-runs can invalidate or preserve downstream state correctly. This is handled primarily by RADPS-UC6.
 - **GAP-05 External system integration**: requires stable identifiers, event subscriptions, and exportable summaries/manifests so external dashboards and ingest systems can track state without waiting for offline products. This is handled primarily by RADPS-UC15 and RADPS-UC18.
-- **GAP-06 Initialization from intermediate state**: requires the context to ingest archival products and materialize a valid mid-pipeline state that the workflow layer can resume from without replaying earlier stages. This is handled primarily by RADPS-UC23.
-- **GAP-07 Explicit tag-based execution control**: requires persisted execution-control tags on datasets or stages so the workflow layer can pause, skip, or reroute work based on durable context state. This is handled primarily by RADPS-UC24.
-- **GAP-08 Heterogeneous dataset coordination and flexible matching semantics**: requires flexible SPW/field/source/column matching semantics plus override hooks across heterogeneous collections rather than assuming a single-master-MS model. This is handled primarily by RADPS-UC10 and RADPS-UC22.
+- **GAP-06 Initialization from intermediate state**: requires the context to ingest archival products and materialize a valid mid-pipeline state that the workflow layer can resume from without replaying earlier stages. This is handled primarily by RADPS-UC22.
+- **GAP-07 Explicit tag-based execution control**: requires persisted execution-control tags on datasets or stages so the workflow layer can pause, skip, or reroute work based on durable context state. This is handled primarily by RADPS-UC23.
+- **GAP-08 Heterogeneous dataset coordination and flexible matching semantics**: requires flexible SPW/field/source/column matching semantics plus override hooks across heterogeneous collections rather than assuming a single-master-MS model. This is handled primarily by RADPS-UC10 and RADPS-UC21.
 
 ## Compatibility and determinism policy (pragmatic)
 
@@ -217,6 +216,6 @@ Using the requirement-derived GAP set from [docs/requirements_and_ownership.md](
 - Do we want **event-sourcing** (append-only events + derived views) or **state tables** (current-state rows), or a hybrid?
 - What artifact location model is required in early phases, and what retention policy applies to intermediates?
 - How is multi-tenancy enforced (namespacing, quotas, access control) and where do authz decisions live?
-- What transport and schema strategy will back the language-neutral API, and what compatibility window is required?
+- What transport and schema strategy will back the stable context interface, and what compatibility window is required?
 - How should external subscriptions be authenticated, retried, and rate-limited?
 - What is the minimum manifest schema required at the end of a run (and who consumes it)?
