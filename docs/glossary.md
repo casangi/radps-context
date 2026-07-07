@@ -48,6 +48,8 @@ This glossary defines common distributed-systems, data-management, and context-s
 
 - **Lineage**: Links that explain how an artifact/result was produced (inputs consumed, node/attempt that produced it, and upstream artifacts).
 
+- **Manifest**: A machine-readable product inventory or summary that records exported products, provenance-relevant metadata, and links needed by archive, reporting, or reproducibility consumers.
+
 - **Matching semantics**: The rules used to decide when metadata elements across datasets correspond to one another. Common modes include **exact** matching and **overlap/partial** matching.
 
 - **MeasurementSet v4 (MSv4)**: The next-generation MeasurementSet representation targeted for RADPS. The RADPS observation catalog may be normalized around this representation even when inputs begin as ASDM or another archive format.
@@ -84,11 +86,21 @@ This glossary defines common distributed-systems, data-management, and context-s
 
 - **ASDM**: ALMA Science Data Model; an archive/distribution format that is typically imported/converted into a MeasurementSet for pipeline processing.
 
+- **AQUA**: ALMA QA reporting/output used by export and reporting code to package quality-assessment summaries for downstream review.
+
+- **Calibration table / caltable**: A CASA calibration product that stores calibration solutions. Current-pipeline export code packages selected calibration tables and apply lists as part of restore/export products.
+
 - **CASA**: Common Astronomy Software Applications; the current pipeline runs “inside CASA” (Python + CASA tools), and many tasks assume CASA data models and IDs.
 
 - **Context**: A long-lived, in-process object that acts as session state + shared mutable state + persistence unit (via pickle). In the current pipeline design it also carries convenience methods and domain-model handles such as the observation catalog.
 
+- **Dask**: A Python parallel/distributed execution framework used by some current-pipeline task queues as one backend for dispatching work.
+
 - **Event bus**: An in-process publish/subscribe mechanism for lifecycle markers (task start/complete, result acceptance). It exists today but is not the primary state mutation channel.
+
+- **Executor**: The current-pipeline component that runs task jobs and optionally accepts returned results into the shared context.
+
+- **FITS**: Flexible Image Transport System; a standard astronomy file format used for exported image products.
 
 - **Imaging “scratch pad” state**: A collection of ad-hoc context attributes used to coordinate the imaging sub-pipeline across multiple stages (for example cleaning lists, beam summaries, thresholds). This is intentionally flexible but fragile without schema/versioning.
 
@@ -98,7 +110,13 @@ This glossary defines common distributed-systems, data-management, and context-s
 
 - **MeasurementSet (MS)**: A radio astronomy dataset format used by CASA and the pipeline. Many current-pipeline context queries are “MS-centric” (look up by MS name, filter by MS type, map SPW IDs).
 
+- **MPI**: Message Passing Interface; a parallel-execution mechanism used by the current pipeline to distribute work to worker processes with serialized context snapshots.
+
+- **NRO**: Nobeyama Radio Observatory; in these docs, a single-dish pipeline/export variant with NRO-specific products and manifests.
+
 - **Orchestration driver**: A front-end that creates and drives execution against the pipeline context. The current pipeline supports multiple orchestration drivers: PPR command lists (ALMA/VLA automated processing), XML procedures (production recipes), and interactive task calls (developer/operator sessions). The context must remain a stable state contract across all drivers (Pipeline UC-11).
+
+- **OUS**: Observing Unit Set; an ALMA processing/package identity used by the current pipeline when naming and exporting standard products.
 
 - **PPR**: Pipeline Processing Request; an XML bundle used to drive automated processing (inputs + metadata + an ordered command list).
 
@@ -107,6 +125,8 @@ This glossary defines common distributed-systems, data-management, and context-s
 - **Results**: A per-task return object that contains outputs (and often QA, tracebacks, and metadata). In the current pipeline, results are “accepted” into context via `Results.accept(context)` / `merge_with_context()`.
 
 - **ResultsProxy**: A lightweight on-disk proxy for a Results object (pickled per stage) used to keep the in-memory context smaller; unpickled lazily during weblog rendering and other traversals.
+
+- **SD (single-dish)**: Single-dish pipeline mode, including ALMA TP and NRO paths, with array-specific metadata, reduction groups, and export products.
 
 - **SPW (Spectral Window)**: A spectral subdivision of the data (frequency window). The current pipeline commonly uses a “virtual SPW” abstraction and maps virtual <--> real (CASA-native) SPW IDs per MS.
 
