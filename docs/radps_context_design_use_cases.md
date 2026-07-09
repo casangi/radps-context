@@ -1,0 +1,778 @@
+# RADPS Use Cases
+
+## Context Design Template
+
+Adapted from “Use Case Modeling” by Kurt Bittner and Ian Spence.
+
+This version is tuned for **Pipeline Context** design. In a distributed system, the “hard” requirements are often in:
+
+- what durable state changes
+- what artifacts are registered
+- what transactional boundaries and idempotency guarantees are required
+- what audit/provenance must be emitted
+
+See also:
+
+- [docs/radps_context_design_basis.md](radps_context_design_basis.md) (Pipeline UC → RADPS context mapping)
+- [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) (source Pipeline UCs)
+- [docs/glossary.md](glossary.md) (definitions: ACID, dependency graph, idempotency, etc.)
+
+RADPS-UC<number>: <title>
+
+    Current Pipeline Cross-References:
+        Related current Pipeline use cases and GAPs that this RADPS use case refines or replaces.
+
+    Relevant Stakeholders
+        The people, teams, or consuming groups this use case matters to. Stakeholders are not necessarily the same as actors.
+    Frequency:
+        How frequently (e.g., high/medium/low) the stakeholder group anticipates encountering the use case.
+    Actors:
+        Actors are entities that interact directly with the system (user, service, worker).
+    Goals:
+        Outcomes of actor interactions. Include context as necessary.
+    Preconditions:
+        Conditions that must be true before the use case can be executed.
+    Postconditions / Outputs:
+        Durable state changes and/or artifacts that must exist after completion.
+    Context Data / Artifacts:
+        What context records are read/written, and what artifacts (if any) are referenced/registered.
+    Transaction / Idempotency Notes:
+        What must be ACID? What can be eventual? What operations must be idempotent?
+    Observability / Audit:
+        Events, logs, metrics, provenance records required.
+    Basic Flow:
+        Main success scenario.
+    Alternative Flows (optional):
+        Deviations: errors, retries, partial completion, permission failures.
+
+---
+
+## Draft RADPS Use Cases
+
+These are first-draft entries focused on **context** (run ledger + artifact registry + provenance), not the entire RADPS workflow.
+
+Notes:
+
+- These use `UC*` numbering for easy cross-reference.
+- They are **RADPS context use cases**; when citing them next to Pipeline UCs, refer to them as “RADPS-UC#”.
+- The requirement trace in [docs/requirements_and_ownership.md](requirements_and_ownership.md) distinguishes workflow-only responsibilities from shared workflow/context responsibilities. This document only expands the use cases that require `radps-context` behavior; workflow-only items such as current UC-07, UC-08, and GAP-01 are intentionally referenced but not modeled here as standalone context use cases.
+- For consistency, the `Relevant Stakeholders` field uses a controlled vocabulary. Services, workers, and software components belong in `Actors`, not `Relevant Stakeholders`.
+- Stakeholder definitions:
+    - **Operations**: People responsible for run setup, monitoring, intervention, reruns, restart decisions, storage control, and operational delivery.
+    - **Pipeline developers**: People who design, implement, debug, validate, or maintain pipeline logic, planning logic, and context-facing behavior.
+    - **QA reviewers**: People or review groups responsible for assessing processing quality, QA outcomes, and release readiness.
+    - **Reporting consumers**: People who rely on manifests, reports, dashboards, or rendered summaries to understand run state or outputs.
+    - **Archive consumers**: People or systems responsible for packaging, ingesting, delivering, or retrieving archived products and manifests.
+    - **Audit and reproducibility consumers**: People or systems concerned with provenance, traceability, compliance, repeatability, or regression comparison.
+    - **Science support**: People who interpret processing results, apply domain judgment, or provide expert guidance on data-specific issues and overrides.
+    - **Domain teams**: Groups responsible for domain- or observatory-specific extensions, policies, metadata, or state models.
+    - **External system operators**: People responsible for integrating, operating, or supporting external systems that consume run state, events, or exported summaries.
+- Actor definitions:
+    - **Operator**: A human or automation acting on behalf of operations to create, inspect, annotate, pause, resume, or rerun processing.
+    - **Workflow orchestration layer**: The workflow-side system or service, such as Prefect or a future equivalent, that creates or revises dependency graphs, schedules work, observes runnable state, dispatches workers, and coordinates retries or resume behavior.
+    - **Worker**: A task execution process that reads context state, writes artifacts, and submits state/provenance updates for a node attempt.
+    - **Ingest service**: A service or automation that registers new or incremental input data with context.
+    - **Archive import service**: A service or automation that retrieves or stages pre-existing archival products and submits them to context to initialize a run from an intermediate state.
+    - **Reporting, QA, heuristic, lifecycle, and external services/tools**: Specialized consumers or producers that query context state, submit domain-specific updates, register artifacts, or subscribe to events for their respective workflows.
+
+RADPS-UC1: Initialize or Load a Run Context
+
+    Current Pipeline Cross-References:
+        UC-03, UC-11, UC-12, UC-19.
+
+    Relevant Stakeholders
+        Operations, Pipeline developers, QA reviewers.
+    Frequency:
+        High.
+    Actors:
+        Operator (human or automation), Workflow orchestration layer.
+    Goals:
+        Create a new run record with stable identifiers, initial metadata, and run-level location configuration, or load an existing run for resume. The context must be driver-agnostic: any orchestration front-end (automated batch, interactive session, recipe evaluator) must produce an equivalent run record, and the context specification must remain stable across drivers (Pipeline UC-11). Run identity, driver metadata, and artifact location/layout policy must be first-class context data so save/restore and export workflows remain portable (Pipeline UC-12, UC-19).
+    Preconditions:
+        Inputs are identified (dataset IDs/paths); caller is authorized to create or access the run.
+    Postconditions / Outputs:
+        A run record exists with initial metadata; a current-plan reference is empty or points to an existing plan record. Run-level location configuration (working/products/report roots) is recorded, either as explicit paths or as artifact-registry location policies.
+    Context Data / Artifacts:
+        Writes run metadata (domain, policy bundle, versions, timestamps, orchestration driver identity); records run-level location configuration (output/report/products roots or artifact-location policies). May accept driver-injected metadata (recipe/procedure name, project IDs, performance parameters).
+    Transaction / Idempotency Notes:
+        Create-run must be atomic; repeated create requests must not create duplicate runs (idempotent by client token or external ID).
+    Observability / Audit:
+        Record a RunCreated event (who/when/what inputs/policy/driver).
+    Basic Flow:
+        1. Actor submits create/load request with minimal metadata (including driver identity and location configuration).
+        2. Context system validates authorization and required fields.
+        3. Context system creates the run record (or returns the existing run) and returns the run reference.
+    Alternative Flows (optional):
+        - Load fails because the run/version is unsupported; system returns a structured incompatibility error.
+        - Driver submits additional metadata (project IDs, performance parameters) as part of creation; Context system records these as immutable-after-init run metadata.
+
+RADPS-UC2: Persist a Plan Representation (Plan Registration)
+
+    Current Pipeline Cross-References:
+        UC-07, UC-08, UC-12.
+
+    Relevant Stakeholders
+        Pipeline developers, Operations, Audit and reproducibility consumers.
+    Frequency:
+        High (at least once per run; may recur on re-plan).
+    Actors:
+        Workflow orchestration layer.
+    Goals:
+        Record the planned computation structure so execution and reporting can be tied back to an explicit plan.
+    Preconditions:
+        A run record exists; the workflow orchestration layer has produced a dependency-graph plan structure and policy provenance.
+    Postconditions / Outputs:
+        A plan record exists and is associated to the run; nodes have stable identifiers.
+    Context Data / Artifacts:
+        Stores plan definition, partitioning keys, orchestration/planning version, policy bundle hash, and user-supplied parameters.
+    Transaction / Idempotency Notes:
+        Register-plan must be atomic; plan updates should be append-only (new plan revision) rather than in-place mutation.
+    Observability / Audit:
+        Record a PlanRegistered event with plan provenance.
+    Basic Flow:
+        1. Workflow orchestration layer submits plan definition to Context system.
+        2. Context system validates schema and links plan to run.
+        3. Context system returns the plan reference and node identifier map.
+    Alternative Flows (optional):
+        - Validation fails (schema/version mismatch); plan is rejected with a clear error.
+
+RADPS-UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start/Finish/Retry)
+
+    Current Pipeline Cross-References:
+        UC-07, UC-08, UC-15, UC-17, UC-19.
+
+    Relevant Stakeholders
+        Operations, Pipeline developers, QA reviewers, Reporting consumers, Audit and reproducibility consumers.
+    Frequency:
+        Very high (per executed node attempt).
+    Actors:
+        Workflow orchestration layer, Worker.
+    Goals:
+        Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for progress tracking, reporting, QA, debugging, and export (Pipeline UC-07, UC-08, UC-15, UC-17, UC-19). Node ordering within the dependency graph replaces current-pipeline stage numbering and must remain coherent across resumes.
+    Preconditions:
+        A run record and plan record exist; the node exists in the plan; worker is authorized to update run state.
+    Postconditions / Outputs:
+        Attempt record(s) exist with stable attempt identifiers; node status transitions are recorded; failures have structured error summaries. The run ledger exposes an ordered execution timeline that consumers can traverse for reporting and debugging.
+    Context Data / Artifacts:
+        Writes attempt state, timestamps, worker identity, tracebacks, QA outcome summaries, and optional resource summaries.
+    Transaction / Idempotency Notes:
+        State transitions must be ACID and monotonic; attempt start/finish must be idempotent (safe to retry on network failure). The ordered execution history must be consistent under concurrent attempt completions.
+    Observability / Audit:
+        Emit NodeAttemptStarted/Finished events; attach tracebacks and error codes where applicable. The execution history itself serves as the primary progress-tracking and debugging interface.
+    Basic Flow:
+        1. Worker requests to start an attempt for a node.
+        2. Context system creates the attempt record and marks it in progress.
+        3. Worker completes work and submits completion status and summary.
+        4. Context system marks the attempt succeeded or failed, updates node-level derived status, and appends to the ordered execution history.
+    Alternative Flows (optional):
+        - Worker crashes mid-attempt; Context system detects lost heartbeats and marks the attempt as no longer active so it can be retried.
+        - Duplicate completion arrives; Context system ignores it (idempotent) or returns existing completion.
+        - Regression harness queries the execution history to validate deterministic outputs, durations, and failure signals across runs.
+
+RADPS-UC4: Register Produced Artifacts with Lineage
+
+    Current Pipeline Cross-References:
+        UC-06, UC-19, GAP-02.
+
+    Relevant Stakeholders
+        Operations, QA reviewers, Reporting consumers, Audit and reproducibility consumers.
+    Frequency:
+        Very high.
+    Actors:
+        Worker.
+    Goals:
+        Make artifacts discoverable and traceable: what was produced, by whom, from what inputs, and where it lives across supported storage backends.
+    Preconditions:
+        Artifact data has been written to durable storage and is readable.
+    Postconditions / Outputs:
+        An artifact record exists with type, lineage, and one or more locations; the artifact is linked to the producing attempt.
+    Context Data / Artifacts:
+        Writes artifact metadata, optional hashes/checksums, retention hints, and one or more storage-agnostic location references/access metadata.
+    Transaction / Idempotency Notes:
+        Registration must be idempotent for the same logical artifact/content and allow multiple durable locations to be attached without creating duplicate logical artifacts.
+    Observability / Audit:
+        Emit ArtifactRegistered event.
+    Basic Flow:
+        1. Worker writes artifact payload.
+        2. Worker submits artifact metadata (type, inputs, locations) to Context system.
+        3. Context system registers artifact and links it to the producing attempt.
+    Alternative Flows (optional):
+        - Artifact is first written to worker-local scratch; registration is deferred or recorded as non-exportable until durable storage is confirmed.
+        - Location becomes unavailable after write; artifact registration fails and the node attempt is marked failed.
+
+RADPS-UC5: Create and Validate an Explicit Checkpoint
+
+    Current Pipeline Cross-References:
+        UC-12, GAP-04.
+
+    Relevant Stakeholders
+        Operations, Pipeline developers.
+    Frequency:
+        Medium to high (stage boundaries; before expensive fan-out).
+    Actors:
+        Workflow orchestration layer, Operator.
+    Goals:
+        Define a durable “safe restart point” that references a closed set of artifacts/state.
+    Preconditions:
+        Required upstream nodes have completed successfully; required artifacts are registered.
+    Postconditions / Outputs:
+        A checkpoint record exists for the run and references the required node states and artifacts.
+    Context Data / Artifacts:
+        Writes checkpoint metadata (scope, node set, artifact set, plan revision).
+    Transaction / Idempotency Notes:
+        Checkpoint creation must be atomic and consistent (no half-created checkpoint).
+    Observability / Audit:
+        Emit CheckpointCreated event.
+    Basic Flow:
+        1. Actor requests checkpoint creation for a defined scope (e.g., stage boundary or partition set).
+        2. Context system verifies prerequisites and creates checkpoint.
+    Alternative Flows (optional):
+        - Prerequisites missing; checkpoint is rejected with a list of missing nodes/artifacts.
+
+RADPS-UC6: Resume or Partial Re-run with Downstream Invalidation
+
+    Current Pipeline Cross-References:
+        UC-12, GAP-04, GAP-06.
+
+    Relevant Stakeholders
+        Operations, Pipeline developers, QA reviewers.
+    Frequency:
+        Medium.
+    Actors:
+        Operator/automation.
+    Goals:
+        Resume a run safely from a checkpoint or re-run a subgraph/partition while maintaining provenance and explicit dependency/invalidation semantics.
+    Preconditions:
+        A run record exists; a checkpoint exists or a rerun scope is defined; caller is authorized.
+    Postconditions / Outputs:
+        Selected nodes are marked runnable; downstream nodes/artifacts are marked stale/tombstoned as appropriate; new attempts are tracked.
+    Context Data / Artifacts:
+        Writes invalidation markers, dependency/version edges, rerun reason, and links to checkpoint/plan revision.
+    Transaction / Idempotency Notes:
+        Invalidation must be ACID to avoid mixed “old/new” downstream states.
+    Observability / Audit:
+        Emit RunResumed/RerunRequested events with reason and scope.
+    Basic Flow:
+        1. Actor requests resume/rerun for a scope.
+        2. Context system marks downstream state stale according to the dependency graph and records the rerun intent.
+        3. Workflow orchestration layer observes runnable nodes and proceeds (out of scope here).
+    Alternative Flows (optional):
+        - Resume fails due to schema/version incompatibility; system returns a structured incompatibility error.
+        - Requested rerun scope overlaps active work; system rejects the rerun or requires cancellation/serialization before proceeding.
+
+RADPS-UC7: Operator Annotation and Controlled Overrides
+
+    Current Pipeline Cross-References:
+        UC-17, GAP-07, GAP-08.
+
+    Relevant Stakeholders
+        Operations, QA reviewers, Science support, Audit and reproducibility consumers.
+    Frequency:
+        Medium.
+    Actors:
+        Operator/QA reviewer.
+    Goals:
+        Record human decisions (notes, approvals, override parameters) as durable, auditable context state.
+    Preconditions:
+        A run record exists; actor is authorized; the target run, node, or artifact exists.
+    Postconditions / Outputs:
+        Annotation/override records exist and are linked to targets; subsequent reporting includes them.
+    Context Data / Artifacts:
+        Writes annotations, approval flags, policy override references.
+    Transaction / Idempotency Notes:
+        Writes must be atomic; edits should be versioned or append-only for audit.
+    Observability / Audit:
+        Emit AnnotationAdded/OverrideApplied events including actor identity.
+    Basic Flow:
+        1. Operator submits an annotation or override request.
+        2. Context system validates authorization and writes the record.
+    Alternative Flows (optional):
+        - Permission denied; request is rejected and logged.
+
+RADPS-UC8: Export Provenance Manifest / Report as an Artifact
+
+    Current Pipeline Cross-References:
+        UC-15, UC-19, GAP-03, GAP-05.
+
+    Relevant Stakeholders
+        Operations, QA reviewers, Reporting consumers, Archive consumers, Audit and reproducibility consumers.
+    Frequency:
+        High (at least once per run; may be re-generated).
+    Actors:
+        Reporting service.
+    Goals:
+        Produce machine-readable manifests and/or human-readable reports based solely on durable context + registered artifacts.
+    Preconditions:
+        Run ledger and artifact registry contain sufficient records; reporting actor is authorized.
+    Postconditions / Outputs:
+        A manifest/report artifact exists and is registered with lineage back to the run.
+    Context Data / Artifacts:
+        Reads run ledger and artifact registry; writes new manifest/report artifact record.
+    Transaction / Idempotency Notes:
+        Export should be repeatable; the same inputs should produce a semantically equivalent manifest (within defined determinism policy).
+    Observability / Audit:
+        Emit ReportGenerated event and include tool versions.
+    Basic Flow:
+        1. Reporting service queries context for run summary, attempts, artifacts, annotations.
+        2. Reporting service writes the manifest/report.
+        3. Reporting service registers the output as an artifact.
+    Alternative Flows (optional):
+        - Missing required records; reporting fails with a clear list of missing context elements.
+
+RADPS-UC9: Artifact Retention and Tombstoning (Safe Cleanup)
+
+    Current Pipeline Cross-References:
+        UC-12, UC-19.
+
+    Relevant Stakeholders
+        Operations, Audit and reproducibility consumers.
+    Frequency:
+        Medium.
+    Actors:
+        Lifecycle manager, Operator.
+    Goals:
+        Apply retention/cleanup without breaking resumability or provenance.
+    Preconditions:
+        Retention policy exists; artifacts have known locations; actor is authorized.
+    Postconditions / Outputs:
+        Artifacts are marked retained or tombstoned; deletions (if any) are recorded as durable state.
+    Context Data / Artifacts:
+        Writes retention decisions and tombstone records.
+    Transaction / Idempotency Notes:
+        Cleanup operations must be idempotent; tombstoning must be ACID with respect to resume/invalidations.
+    Observability / Audit:
+        Emit ArtifactTombstoned/RetentionApplied events.
+    Basic Flow:
+        1. Lifecycle manager identifies candidates per policy.
+        2. Context system records tombstones/retention decisions.
+        3. Storage cleanup occurs (out of scope here), and completion is recorded.
+    Alternative Flows (optional):
+        - Artifact is on hold due to an active investigation; cleanup is skipped and hold reason recorded.
+
+RADPS-UC10: Query Dataset / Observation Catalog (Read-Only View)
+
+    Current Pipeline Cross-References:
+        UC-01, UC-02, GAP-08.
+
+    Relevant Stakeholders
+        Pipeline developers, QA reviewers, Reporting consumers.
+    Frequency:
+        Very high.
+    Actors:
+        Worker, heuristic service, QA/reporting service, external consumer/tool.
+    Goals:
+        Provide fast, consistent access to observation metadata (catalog inventory, fields, SPWs, scans, data-type metadata, and cross-dataset identity/matching records) required by tasks, heuristics, external consumers, and reporting. This is the read-only catalog surface underlying more specialized matching workflows such as UC21. Returned records must be typed and stable enough that consumers do not depend on storage layout or implementation details.
+    Preconditions:
+        A run record exists; dataset inventory has been registered in context; the requested catalog schema/version is supported.
+    Postconditions / Outputs:
+        No new durable state is required; consumers obtain a consistent typed view of metadata and know which schema/contract version was used.
+    Context Data / Artifacts:
+        Reads Dataset/Observation Catalog records, data-type metadata, and cross-dataset identity/matching tables; exposes schema descriptors and typed errors for consumer-facing catalog queries.
+    Transaction / Idempotency Notes:
+        Reads should be served from a consistent snapshot (e.g., transaction-level or checkpoint-level read).
+    Observability / Audit:
+        Optional: record query provenance for expensive reports (not required for all task-level reads).
+    Basic Flow:
+        1. Consumer requests catalog data for a scope (by dataset, field/spw/scan partition, logical selection, or data type).
+        2. Context system returns typed metadata records.
+    Alternative Flows (optional):
+        - Requested scope not found; return a structured “unknown dataset/partition” error.
+        - Requested schema version is unsupported; return compatible versions or upgrade guidance.
+
+RADPS-UC11: Apply Transactional Calibration State Update
+
+    Current Pipeline Cross-References:
+        UC-04.
+
+    Relevant Stakeholders
+        Pipeline developers, Operations, QA reviewers.
+    Frequency:
+        High.
+    Actors:
+        Worker.
+    Goals:
+        Atomically record a set of calibration state changes produced by a task.
+    Preconditions:
+        Producing attempt exists; calibration artifacts (e.g., tables) are written and registered (or will be registered in the same transaction if supported).
+    Postconditions / Outputs:
+        Calibration state version advances; downstream consumers see either the old or new version, never a mix.
+    Context Data / Artifacts:
+        Writes calibration application records and links them to artifact IDs and producing attempts.
+    Transaction / Idempotency Notes:
+        Must be ACID; multi-entry updates must commit atomically; repeated submissions from a retried client must not duplicate entries.
+    Observability / Audit:
+        Emit CalibrationStateUpdated event and link to attempt.
+    Basic Flow:
+        1. Worker submits a calibration-state patch (multiple entries) referencing produced artifacts.
+        2. Context system validates and commits the patch atomically.
+    Alternative Flows (optional):
+        - Conflict detected with a concurrent incompatible update; patch is rejected and worker must retry with updated base version.
+
+RADPS-UC12: Update Imaging State (Schema’d Scratch Pad)
+
+    Current Pipeline Cross-References:
+        UC-05.
+
+    Relevant Stakeholders
+        Pipeline developers, Operations, Reporting consumers.
+    Frequency:
+        High.
+    Actors:
+        Worker.
+    Goals:
+        Replace ad-hoc imaging attributes with a versioned, typed imaging state document that supports partition-scoped updates.
+    Preconditions:
+        A run record exists; plan node scope identifies which imaging partition is being updated (field/spw/scan or equivalent).
+    Postconditions / Outputs:
+        Imaging state is updated for the intended scope; downstream readers can resolve the correct version.
+    Context Data / Artifacts:
+        Writes imaging state records; may link to artifact IDs (masks, thresholds, sensitivities, beam models).
+    Transaction / Idempotency Notes:
+        Must be ACID for a given partition scope; updates should be versioned to support resume and rerun.
+    Observability / Audit:
+        Emit ImagingStateUpdated event.
+    Basic Flow:
+        1. Worker submits imaging state update scoped to a partition.
+        2. Context system validates schema/version and commits.
+    Alternative Flows (optional):
+        - Schema/version mismatch; update rejected with required migration/version info.
+
+RADPS-UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
+
+    Current Pipeline Cross-References:
+        UC-15, UC-16, UC-17, UC-19.
+
+    Relevant Stakeholders
+        QA reviewers, Reporting consumers, Pipeline developers, Operations.
+    Frequency:
+        High.
+    Actors:
+        QA/reporting service, debugging/inspection tools, CI harness, external consumer/tool.
+    Goals:
+        Provide a consistent read view of run state and artifact registry for rendering, QA, export, and inspection without depending on worker memory. Must also support debugging use cases: diagnosing failures (what ran, what data was loaded, what state was produced), validating deterministic outputs, and surfacing failures beyond raw task exceptions (Pipeline UC-15, UC-16, UC-17, UC-19). Snapshot queries should be available through a stable, typed contract for reporting tools, external dashboards, and inspection clients.
+    Preconditions:
+        A checkpoint exists or a consistent snapshot boundary is defined (e.g., “as of attempt X completion”); the requested snapshot schema/version is supported.
+    Postconditions / Outputs:
+        Snapshot view is consumable; optional derived products (reports) can be produced and registered. Debugging tools can traverse the snapshot without requiring access to the worker runtime. Consumer-facing responses identify the schema/contract version used.
+    Context Data / Artifacts:
+        Reads ledger + registry + annotations + execution history (UC3).
+    Transaction / Idempotency Notes:
+        Snapshot reads must be consistent; re-rendering should be deterministic within declared policy.
+    Observability / Audit:
+        Record snapshot boundary identifiers and schema versions used by the report or inspection session.
+    Basic Flow:
+        1. Service requests a snapshot for the run at a boundary.
+        2. Context system serves a consistent view for queries.
+    Alternative Flows (optional):
+        - Boundary not available (no checkpoint); service may request “latest committed” with caveats recorded.
+        - Debugging/CI tool queries snapshot to compare outputs across runs or validate expected artifacts and QA outcomes.
+        - Requested snapshot schema is unsupported; return compatible versions or a typed incompatibility error.
+
+RADPS-UC14: Resolve Named Outputs Instead of Stage-Index Walking
+
+    Current Pipeline Cross-References:
+        UC-09.
+
+    Relevant Stakeholders
+        Pipeline developers, Operations.
+    Frequency:
+        High.
+    Actors:
+        Worker, downstream consumer/tool.
+    Goals:
+        Allow downstream tasks and consumers to discover upstream outputs by stable keys (names/types/scopes) instead of walking an ordered results list or depending on storage layout.
+    Preconditions:
+        Upstream artifacts/records have been registered with names/types/scopes.
+    Postconditions / Outputs:
+        Downstream consumers can bind required inputs deterministically through typed artifact/output records.
+    Context Data / Artifacts:
+        Reads from artifact registry and/or typed output tables keyed by logical output name + scope; returns artifact identifiers, metadata, and storage-agnostic location/access references.
+    Transaction / Idempotency Notes:
+        Output registration must be idempotent; lookups must be consistent under concurrency.
+    Observability / Audit:
+        Optional: record bindings for provenance (which artifact IDs satisfied which logical inputs).
+    Basic Flow:
+        1. Consumer requests “latest output of type X for scope Y” (or a specific version) through the supported context contract.
+        2. Context system returns artifact IDs and metadata.
+    Alternative Flows (optional):
+        - Output not found; consumer fails fast with a structured missing-dependency error.
+
+RADPS-UC15: Append-Only Event Log / Patch Log (Audit + Replay)
+
+    Current Pipeline Cross-References:
+        UC-08, UC-17, GAP-05.
+
+    Relevant Stakeholders
+        Operations, Pipeline developers, QA reviewers, External system operators, Audit and reproducibility consumers.
+    Frequency:
+        Very high.
+    Actors:
+        Workflow orchestration layer, workers, reporting/monitoring consumers.
+    Goals:
+        Maintain an append-only record of significant lifecycle events and/or state patches so that run evolution is auditable and (where feasible) replayable.
+    Preconditions:
+        A run record exists; writer is authorized.
+    Postconditions / Outputs:
+        Event records exist with stable identifiers and ordering; events are linked to the relevant plan, node, attempt, or artifact records where applicable.
+    Context Data / Artifacts:
+        Writes event records; may include compact patch payloads or references to patch artifacts.
+    Transaction / Idempotency Notes:
+        Appends must be ACID; producers must be able to retry safely without duplicating logical events (idempotency keys).
+    Observability / Audit:
+        Events are the audit trail; provide queries by run, by node, and by time range.
+    Basic Flow:
+        1. Producer submits an event (and optional patch reference) with an idempotency key.
+        2. Context system appends the event and returns an event ID.
+        3. Consumers query or subscribe to events for monitoring/reporting.
+    Alternative Flows (optional):
+        - Duplicate event submission returns the existing event ID.
+
+RADPS-UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
+
+    Current Pipeline Cross-References:
+        UC-18.
+
+    Relevant Stakeholders
+        Domain teams, Pipeline developers, Operations.
+    Frequency:
+        Medium.
+    Actors:
+        Worker, Workflow orchestration layer.
+    Goals:
+        Support domain-specific state without reintroducing untyped “state bags”, while keeping the core context specification stable.
+    Preconditions:
+        Extension schema/type is registered/known for the run; caller is authorized.
+    Postconditions / Outputs:
+        Extension state is stored as typed, versioned records scoped to run and (optionally) dataset/partition.
+    Context Data / Artifacts:
+        Reads/writes extension records; may link extension state to artifacts.
+    Transaction / Idempotency Notes:
+        Extension updates should be ACID within their scope; versioning is required for reruns/resume.
+    Observability / Audit:
+        Emit ExtensionRegistered/ExtensionUpdated events.
+    Basic Flow:
+        1. Workflow orchestration layer or operator enables an extension type for a run (schema/version).
+        2. Workers write scoped extension updates during execution.
+        3. Consumers query extension state via typed APIs.
+    Alternative Flows (optional):
+        - Unknown extension schema/version; update is rejected with a structured error.
+
+RADPS-UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Execution)
+
+    Current Pipeline Cross-References:
+        UC-09, UC-13, UC-14, GAP-01, GAP-02.
+
+    Relevant Stakeholders
+        Operations, Pipeline developers.
+    Frequency:
+        Very high.
+    Actors:
+        Workflow orchestration layer, Worker.
+    Goals:
+        Allow workers to read a consistent snapshot of required context state while ensuring all writes return through ACID transactions rather than worker-local serialized state, including asynchronous and overlapping execution of independent work across partitions. The same transactional semantics must be available through the supported context contract so workers are not coupled to storage layout or process-local implementation details.
+    Preconditions:
+        A run record exists; a snapshot boundary exists (checkpoint, plan revision boundary, or latest committed state); worker is authorized; the requested operation is exposed by the supported contract.
+    Postconditions / Outputs:
+        Worker obtains a snapshot token or equivalent boundary reference; all updates are committed as transactional patches linked to the producing attempt; responses identify the schema/contract version used where relevant.
+    Context Data / Artifacts:
+        Reads snapshot views of ledger/catalog/state; writes attempt state, artifacts, and patches.
+    Transaction / Idempotency Notes:
+        Snapshot reads must be consistent; write-back must be ACID with conflict detection and partition-scoped merges where possible. All submissions must be idempotent under retry, including calls made through external consumers using idempotency keys.
+    Observability / Audit:
+        Record snapshot boundary, patch application events, caller identity, schema version, and idempotency keys where relevant; link patches to the worker identity and attempt.
+    Basic Flow:
+        1. Worker requests a snapshot token for its node/partition scope.
+        2. Worker performs computation using snapshot reads.
+        3. Worker registers artifacts and submits context patches transactionally.
+        4. Context system commits patches and updates derived state.
+    Alternative Flows (optional):
+        - Write conflict detected; worker must refresh snapshot and retry with a new base version.
+        - Consumer requests an operation not exposed by the supported contract; request is rejected with a typed capability error.
+
+RADPS-UC18: Publish Run State to External Systems
+
+    Current Pipeline Cross-References:
+        UC-07, UC-15, UC-19, GAP-05.
+
+    Relevant Stakeholders
+        Operations, QA reviewers, Archive consumers, External system operators.
+    Frequency:
+        High.
+    Actors:
+        External consumer/service, notification dispatcher.
+    Goals:
+        Provide timely, stable access to current processing state, lifecycle events, and summary views without requiring consumers to scrape product files or worker-local storage. The design must support both pull-style queries and push-style subscriptions for selected lifecycle events through stable, typed contracts.
+    Preconditions:
+        A run record exists; consumer or subscription is authorized; the requested summary or event schema version is supported.
+    Postconditions / Outputs:
+        External consumers can query current state or receive subscribed notifications; delivery attempts and subscription state are recorded durably; responses and notifications identify the schema/contract version used.
+    Context Data / Artifacts:
+        Reads run ledger, artifact registry, QA records, and summary views; writes subscription definitions, delivery records, and exported summary/manifest artifacts when required; publishes schema descriptors and typed error codes for external integration contracts.
+    Transaction / Idempotency Notes:
+        Subscription changes and delivery-state updates must be atomic; notifications must be idempotent and retryable.
+    Observability / Audit:
+        Emit SubscriptionCreated/Updated, NotificationDispatched, NotificationFailed, and API access events with consumer identity and schema version.
+    Basic Flow:
+        1. Consumer registers or uses an existing subscription/query contract for selected run events or summaries.
+        2. Context system serves query results or dispatches notifications when the selected events occur.
+        3. Delivery attempts and any exported summary artifacts are recorded for audit.
+    Alternative Flows (optional):
+        - Consumer requests an unsupported schema version; request is rejected with negotiation details.
+        - Delivery endpoint is unavailable; dispatcher retries per policy and records failure state without losing the event.
+
+RADPS-UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
+
+    Current Pipeline Cross-References:
+        UC-08, UC-17, UC-19, GAP-03.
+
+    Relevant Stakeholders
+        Operations, QA reviewers, Audit and reproducibility consumers.
+    Frequency:
+        High.
+    Actors:
+        Worker, reporting service.
+    Goals:
+        Capture the immutable provenance required to reproduce or audit a run: exact input identities/hashes, parameters, software versions, execution environment, hardware, execution-control details, and lineage links for each attempt and exported product.
+    Preconditions:
+        An attempt or export operation exists; input identifiers are available for hashing/fingerprinting; environment metadata is available.
+    Postconditions / Outputs:
+        An immutable provenance record exists and is linked to the relevant attempt, artifact, or exported manifest.
+    Context Data / Artifacts:
+        Writes provenance envelopes, input hashes/fingerprints, environment records, and deterministic-execution annotations.
+    Transaction / Idempotency Notes:
+        Provenance capture must commit atomically with attempt completion or artifact registration where required by policy; repeated submissions from a retried client must not fork multiple provenance records for the same logical event.
+    Observability / Audit:
+        Emit ProvenanceCaptured events and surface missing or partial provenance fields explicitly.
+    Basic Flow:
+        1. Worker or reporting service collects input hashes/fingerprints and environment metadata.
+        2. Context system validates required fields and stores the immutable provenance envelope linked to the attempt or artifact.
+        3. Downstream reporting/export queries these records directly.
+    Alternative Flows (optional):
+        - Some hashes are unavailable at completion time; system records partial provenance with explicit missing-field markers and may block checkpoint/export per policy.
+        - Environment details change mid-run; new attempts record new environment versions rather than mutating prior provenance.
+
+RADPS-UC20: Register Incremental Dataset Updates and Versioned Results
+
+    Current Pipeline Cross-References:
+        UC-01, UC-12, GAP-04.
+
+    Relevant Stakeholders
+        Operations, Pipeline developers, External system operators.
+    Frequency:
+        Medium to high.
+    Actors:
+        Ingest service, Workflow orchestration layer.
+    Goals:
+        Allow new data to be registered into an active run/session, trigger incremental processing, and ensure new outputs are versioned rather than overwriting prior results.
+    Preconditions:
+        A run record exists; incremental-ingest policy allows new data; incoming data is identifiable and scoped to an existing or new session partition.
+    Postconditions / Outputs:
+        Dataset catalog contains a new dataset/version record; affected plan nodes or partitions are marked runnable; newly produced artifacts/results receive new version identifiers.
+    Context Data / Artifacts:
+        Writes dataset version records, ingest lineage, runnable-node markers, invalidation/update edges, and result/artifact version metadata.
+    Transaction / Idempotency Notes:
+        Dataset registration must be atomic and idempotent for the same ingest event; version assignment and downstream invalidation must commit together to avoid mixed old/new state.
+    Observability / Audit:
+        Emit DatasetVersionRegistered and IncrementalProcessingRequested events with ingest source and scope.
+    Basic Flow:
+        1. Ingest service submits new dataset material or a new version reference for an active run.
+        2. Context system registers the dataset version and determines the affected scopes/nodes.
+        3. Context system marks the relevant work runnable and ensures subsequent outputs are versioned.
+    Alternative Flows (optional):
+        - Incoming data conflicts with an existing immutable dataset version; system rejects it or records it as a separate branch/version per policy.
+        - Incremental registration arrives while dependent work is running; system serializes, branches, or defers the update according to policy.
+
+RADPS-UC21: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
+
+    Current Pipeline Cross-References:
+        UC-02, UC-18, GAP-08.
+
+    Relevant Stakeholders
+        Pipeline developers, Operations, Science support.
+    Frequency:
+        High.
+    Actors:
+        Worker, heuristic service, operator.
+    Goals:
+        Resolve shared identity across heterogeneous datasets that do not share native SPW numbering, field numbering, source labels, or data-column layouts. Matching must support exact semantics for calibration-style consumers, overlap/partial semantics for imaging-style consumers, and explicit override rules with recorded rationale when defaults are ambiguous or incorrect.
+    Preconditions:
+        Relevant datasets are registered; matching schema/version is known; caller is authorized to read or set overrides.
+    Postconditions / Outputs:
+        Consumer receives a resolved match set and, when overrides are supplied, the override records are durably stored with rationale and scope.
+    Context Data / Artifacts:
+        Reads cross-dataset identity records, field/source/SPW/column metadata, and matching policies; writes override records and rationale metadata when explicit mappings are applied.
+    Transaction / Idempotency Notes:
+        Match-resolution reads must come from a consistent snapshot; override writes must be versioned, scoped, and idempotent for the same logical mapping request.
+    Observability / Audit:
+        Record MatchResolved and MatchOverrideApplied events including matching mode, scope, and actor identity.
+    Basic Flow:
+        1. Consumer requests a match set for a scope and matching mode.
+        2. Context system evaluates identity records, matching policy, and any existing overrides.
+        3. Context system returns the resolved match set and records any newly supplied override.
+    Alternative Flows (optional):
+        - Multiple candidate matches remain after policy evaluation; service returns an ambiguity error or candidate set requiring heuristic/user choice.
+        - An override conflicts with an existing locked mapping; service rejects it unless an authorized replacement workflow is used.
+
+RADPS-UC22: Initialize Context from Intermediate Archival State
+
+    Current Pipeline Cross-References:
+        UC-12, GAP-06.
+
+    Relevant Stakeholders
+        Operations, Archive consumers, External system operators.
+    Frequency:
+        Medium.
+    Actors:
+        Archive import service, operator.
+    Goals:
+        Materialize a valid mid-pipeline run state from pre-existing archival products or other previously generated durable artifacts so that earlier stages can be skipped and later stages can execute against a normal-looking context state.
+    Preconditions:
+        Archival products are identifiable and accessible; the target run exists or is being created; the import policy identifies which prior stages are considered satisfied.
+    Postconditions / Outputs:
+        Dataset, artifact, calibration/imaging, and provenance records required for the imported boundary exist in context and are linked to their archival sources; the restored boundary is marked as a valid resume point.
+    Context Data / Artifacts:
+        Writes dataset/catalog records, imported artifact registrations, imported state snapshots or equivalent typed records, provenance links to archival sources, and resume-boundary metadata.
+    Transaction / Idempotency Notes:
+        Initialization must be atomic for the declared boundary so the run never exposes a partially reconstructed mid-pipeline state. Repeating the same import request must be idempotent for the same archival source set.
+    Observability / Audit:
+        Emit IntermediateStateInitialized events with source identities, imported stage boundary, actor identity, and any fields that were inferred rather than directly imported.
+    Basic Flow:
+        1. Archive import service submits archival products and declares the intended initialization boundary.
+        2. Context system validates the source products, required metadata, and compatibility of the imported state.
+        3. Context system registers the imported artifacts and writes the corresponding typed state records.
+        4. Context system marks the resulting state as a valid resume boundary for downstream workflow logic.
+    Alternative Flows (optional):
+        - Imported products are insufficient to construct a valid boundary; initialization is rejected with a list of missing state elements.
+        - Imported records conflict with immutable run state already present; system rejects the import or requires a separate branch/run per policy.
+
+RADPS-UC23: Persist Execution-Control Tags for Workflow Decisions
+
+    Current Pipeline Cross-References:
+        GAP-07.
+
+    Relevant Stakeholders
+        Operations, Pipeline developers, Audit and reproducibility consumers.
+    Frequency:
+        Medium.
+    Actors:
+        Operator, heuristic service, Workflow orchestration layer.
+    Goals:
+        Persist execution-control tags (for example pause, skip, or reroute directives) on runs, datasets, or stage scopes so the workflow layer can reliably enforce them throughout the lifetime of the run.
+    Preconditions:
+        Target run/dataset/stage scope exists; caller is authorized to create or update execution-control tags.
+    Postconditions / Outputs:
+        Tag records exist with scope, value, rationale, author, and lifecycle metadata; workflow consumers can query them through the normal context specification.
+    Context Data / Artifacts:
+        Writes execution-control tag records and rationale/annotation metadata; reads existing tag state for conflict detection and workflow queries.
+    Transaction / Idempotency Notes:
+        Tag writes must be atomic and versioned within their scope. Repeating the same logical tag request must be idempotent, while conflicting concurrent tag updates must be detected explicitly.
+    Observability / Audit:
+        Emit ExecutionControlTagApplied, Updated, or Cleared events with actor identity, scope, rationale, and effective time.
+    Basic Flow:
+        1. Actor submits an execution-control tag for a run, dataset, or stage scope.
+        2. Context system validates authorization, scope, and any existing conflicting tag state.
+        3. Context system records the tag and returns the persisted state.
+        4. Workflow orchestration layer queries the tag state before scheduling or continuing affected work.
+    Alternative Flows (optional):
+        - Submitted tag conflicts with a locked or already-effective control decision; request is rejected unless an authorized override workflow is used.
+        - Workflow orchestration layer requests tags for an unknown scope; Context system returns a structured not-found error.
