@@ -1,4 +1,6 @@
-# RADPS Use Case Template (Context Design)
+# RADPS Use Cases
+
+## Context Design Template
 
 Adapted from “Use Case Modeling” by Kurt Bittner and Ian Spence.
 
@@ -13,7 +15,7 @@ See also:
 
 - [docs/radps_context_design_basis.md](radps_context_design_basis.md) (Pipeline UC → RADPS context mapping)
 - [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) (source Pipeline UCs)
-- [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
+- [docs/glossary.md](glossary.md) (definitions: ACID, dependency graph, idempotency, etc.)
 
 RADPS-UC<number>: <title>
 
@@ -47,7 +49,7 @@ RADPS-UC<number>: <title>
 
 ---
 
-Draft RADPS Use Cases
+## Draft RADPS Use Cases
 
 These are first-draft entries focused on **context** (run ledger + artifact registry + provenance), not the entire RADPS workflow.
 
@@ -67,6 +69,13 @@ Notes:
     - **Science support**: People who interpret processing results, apply domain judgment, or provide expert guidance on data-specific issues and overrides.
     - **Domain teams**: Groups responsible for domain- or observatory-specific extensions, policies, metadata, or state models.
     - **External system operators**: People responsible for integrating, operating, or supporting external systems that consume run state, events, or exported summaries.
+- Actor definitions:
+    - **Context system**: The `radps-context` subsystem itself: the service or library boundary that owns the run ledger, artifact registry, provenance records, typed query/update APIs, validation, authorization checks, transaction boundaries, and durable event/state updates. It is listed as an actor when the use case requires behavior from the context component, rather than only from an external caller.
+    - **Operator**: A human or automation acting on behalf of operations to create, inspect, annotate, pause, resume, or rerun processing.
+    - **Planner service**: The component that creates or revises the planned dependency graph and submits plan metadata to the context.
+    - **Executor/controller**: The workflow-side component that schedules work, observes runnable state, dispatches workers, and coordinates retries or resume behavior.
+    - **Worker**: A task execution process that reads context state, writes artifacts, and submits state/provenance updates for a node attempt.
+    - **Reporting, QA, heuristic, ingest, lifecycle, and external services/tools**: Specialized consumers or producers that query context state, submit domain-specific updates, register artifacts, or subscribe to events for their respective workflows.
 
 RADPS-UC1: Initialize or Load a Run Context
 
@@ -117,7 +126,7 @@ RADPS-UC2: Persist a Plan Representation (Plan Registration)
     Goals:
         Record the planned computation structure so execution and reporting can be tied back to an explicit plan.
     Preconditions:
-        A run record exists; planner has produced a plan structure (DAG/graph) and policy provenance.
+        A run record exists; planner has produced a dependency-graph plan structure and policy provenance.
     Postconditions / Outputs:
         A plan record exists and is associated to the run; nodes have stable identifiers.
     Context Data / Artifacts:
@@ -147,7 +156,7 @@ RADPS-UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start
     Actors:
         Executor/worker, Context system.
     Goals:
-        Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for progress tracking, reporting, QA, debugging, and export (Pipeline UC-07, UC-08, UC-15, UC-17, UC-19). Node ordering within the DAG replaces current-pipeline stage numbering and must remain coherent across resumes.
+        Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for progress tracking, reporting, QA, debugging, and export (Pipeline UC-07, UC-08, UC-15, UC-17, UC-19). Node ordering within the dependency graph replaces current-pipeline stage numbering and must remain coherent across resumes.
     Preconditions:
         A run record and plan record exist; the node exists in the plan; worker is authorized to update run state.
     Postconditions / Outputs:

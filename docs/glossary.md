@@ -22,7 +22,7 @@ This glossary defines common distributed-systems, data-management, and context-s
 
 - **Context specification**: The stable, implementation-independent definition of what the context subsystem exposes and guarantees to its consumers. This includes identifiers, record shapes, invariants, transactional behavior, query and update semantics, event surfaces, and compatibility expectations.
 
-- **DAG (Directed Acyclic Graph)**: A graph of computation nodes with dependency edges, with no cycles. Used to represent planned work and explicit dependencies.
+- **Dependency graph**: A graph of computation nodes with dependency edges. Used to represent planned work and explicit dependencies without requiring a specific graph implementation.
 
 - **Deterministic execution / determinism policy**: The expectation that the same inputs, software versions, and resource envelope produce the same results within numerical precision. Any deviations must be explainable from recorded provenance.
 

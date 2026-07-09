@@ -2,13 +2,13 @@
 
 This note maps the **current Pipeline context** use cases documented in [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) to the **RADPS** execution model and derives a concrete context specification suitable for distributed, ACID, restartable processing.
 
-It now also aligns with [docs/requirements_and_ownership.md](requirements_and_ownership.md), which ties those current use cases and the identified GAP scenarios to specific RADPS requirements and to implementation ownership across `radps-context` and the workflow orchestration layer.
+[docs/requirements_and_ownership.md](requirements_and_ownership.md) provides the companion requirement trace, linking the current use cases and identified GAP scenarios to specific RADPS requirements and assigning implementation ownership across `radps-context` and the workflow orchestration layer.
 
 See also:
 
 - [docs/radps_context_design_use_cases.md](radps_context_design_use_cases.md) (draft RADPS context use cases)
 - [docs/context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md) (source Pipeline use cases)
-- [docs/glossary.md](glossary.md) (definitions: ACID, DAG, idempotency, etc.)
+- [docs/glossary.md](glossary.md) (definitions: ACID, dependency graph, idempotency, etc.)
 
 ## Assumptions (from RADPS discussions)
 
@@ -16,7 +16,7 @@ See also:
 - **Data model**: archive inputs (e.g., ASDM) convert to a normalized observation representation.
 - **Scale**: multi-TB artifacts, very large spectral cubes (up to ~1.2M channels), significantly increased SPWs. These figures should be treated as **top-end outputs**, not the typical case.
 - **Efficiency (common case)**: the context design must scale to larger datasets, but should remain efficient for smaller/more common runs; avoid “worst-case-first” tradeoffs that significantly degrade day-to-day performance.
-- **Execution**: planner service generates a **DAG at runtime**; execution is distributed, with concurrent workers and overlapping work whenever dependencies allow.
+- **Execution**: planner service generates a **dependency graph at runtime**; execution is distributed, with concurrent workers and overlapping work whenever dependencies allow.
 - **State semantics**: shared state must have **ACID semantics** (multi-writer correctness is required).
 - **Operations**: intermediates must remain **locally available** (for pause/inspect/manual intervention); resumability, targeted reruns, and incremental updates are required.
 - **Interfaces**: workers and external systems need stable, typed query, update, and event interfaces to the current processing state.
@@ -63,18 +63,18 @@ Two current-pipeline use cases are explicitly discarded in the requirement trace
 
 ## Pipeline responsibilities to RADPS context subsystem mapping
 
-The Pipeline analysis still collapses to 15 broad responsibilities. The table below maps each responsibility to its current Pipeline use cases and RADPS context counterparts for cross-reference.
+The Pipeline analysis collapses to 15 broad responsibilities. The table below maps each responsibility to its current Pipeline use cases and RADPS context counterparts for cross-reference.
 
-| # | Pipeline Responsibility | Current Pipeline UCs | RADPS UCs / GAPs | Notes |
+| # | Pipeline Responsibility | Current Pipeline UCs / GAPs | RADPS UCs | Notes |
 |---|---|---|---|---|
 | 1 | Static Observation & Project Data | UC-01, UC-03 | RADPS-UC1, RADPS-UC10 | Stable identifiers and cross-dataset identity records replace MS-name lookups and single-master assumptions. |
 | 2 | Mutable Observation State | UC-01, UC-02 | RADPS-UC10, RADPS-UC20, RADPS-UC21 | Derived datasets are registered with lineage and version history instead of mutating the original inventory in place. |
-| 3 | Path Management | UC-12, UC-19 | RADPS-UC1, RADPS-UC4, GAP-02 | Paths become artifact locations or access policies, not embedded process-local strings. |
+| 3 | Path Management | UC-12, UC-19, GAP-02 | RADPS-UC1, RADPS-UC4 | Paths become artifact locations or access policies, not embedded process-local strings. |
 | 4 | Imaging State Management | UC-05 | RADPS-UC12 | Typed, versioned, partition-scoped. |
 | 5 | Calibration State Management | UC-04 | RADPS-UC11 | Transactional, multi-entry, versioned, removable. |
 | 6 | Image Library Management | UC-06 | RADPS-UC4, RADPS-UC8 | Separate views (science/cal/RMS/sub-product) can be layered over the registry if needed. |
 | 7 | Session Persistence | UC-11, UC-12 | RADPS-UC1, RADPS-UC5, RADPS-UC6, RADPS-UC22 | Explicit persisted state replaces implementation-bound session snapshots and supports portable restore semantics. |
-| 8 | Parallel Distribution | UC-13, UC-14 | RADPS-UC17, GAP-01, GAP-02 | Consistent snapshot reads and ACID write-back support overlapping execution. |
+| 8 | Parallel Distribution | UC-13, UC-14, GAP-01, GAP-02 | RADPS-UC17 | Consistent snapshot reads and ACID write-back support overlapping execution. |
 | 9 | Inter-Task Data Passing | UC-09 | RADPS-UC14, RADPS-UC17 | Replaces implicit state merging plus results-list walking with named outputs and transactional updates. |
 | 10 | Stage Tracking & Result Accumulation | UC-07, UC-08 | RADPS-UC2, RADPS-UC3 | Current node state plus ordered attempt history replaces current-pipeline stage numbering as the main execution record. |
 | 11 | Reporting & Export Support | UC-15, UC-19 | RADPS-UC8, RADPS-UC13, RADPS-UC18 | Stable interfaces support weblogs, manifests, scripts, dashboards, and product packaging. |
@@ -85,9 +85,9 @@ The Pipeline analysis still collapses to 15 broad responsibilities. The table be
 
 ## What changes materially in RADPS (vs current Pipeline)
 
-### Orchestration: from linear “commands” to planned DAGs
+### Orchestration: from linear “commands” to planned dependency graphs
 
-- The operational contract becomes: **inputs + policies → plan (DAG) → execution**.
+- The operational contract becomes: **inputs + policies → plan (dependency graph) → execution**.
 - Planning is explicit and versioned; execution is a separate concern.
 - “Mini-graphs” per (field, spw, scan) imply:
   - Many nodes, high fan-out
@@ -129,8 +129,8 @@ A workable next-gen context needs a small set of concepts with stable identifier
 
 - Run identifier: globally unique identifier for a pipeline run (immutable)
 - Dataset identifier: stable identifier for an imported or derived dataset version within a run
-- Plan identifier: identifier for the planned DAG/graph version used by the run
-- Node identifier: stable identifier for a DAG node (task instance)
+- Plan identifier: identifier for the planned dependency-graph version used by the run
+- Node identifier: stable identifier for a dependency-graph node (task instance)
 - Attempt identifier: unique identifier per node execution attempt (retries, reschedules)
 - Artifact identifier: stable identifier for a produced artifact
 
@@ -143,7 +143,7 @@ Minimum records/relations (conceptually):
 - **Dataset/Observation Catalog**: normalized observation inventory, per-partition metadata (field/spw/scan), data-type metadata, and cross-dataset identity/matching records needed by tasks, QA, and rendering
 - **Calibration State**: versioned calibration application state
 - **Imaging State**: schema’d imaging configuration/scratch-pad state (partition-scoped where possible)
-- **Plan**: DAG structure, node definitions, resource intents (CPU/mem/IO locality), partitioning keys
+- **Plan**: dependency-graph structure, node definitions, resource intents (CPU/mem/IO locality), partitioning keys
 - **Node execution state**:
   - status values covering pending, in-progress, successful, failed, skipped, or canceled execution
   - timing, resources used, worker identity, error summaries
