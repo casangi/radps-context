@@ -52,7 +52,7 @@ This glossary defines common distributed-systems, data-management, and context-s
 
 - **Matching semantics**: The rules used to decide when metadata elements across datasets correspond to one another. Common modes include **exact** matching and **overlap/partial** matching.
 
-- **MeasurementSet v4 (MSv4)**: The next-generation MeasurementSet representation targeted for RADPS. The RADPS observation catalog may be normalized around this representation even when inputs begin as ASDM or another archive format.
+- **MeasurementSet v4 (MSv4)**: The next-generation MeasurementSet representation targeted for RADPS and exposed through the XRADIO package. The RADPS observation catalog may be normalized around this representation even when inputs begin as ASDM or another archive format.
 
 - **Middleware/API layer**: The service boundary that exposes typed context operations, schema/version negotiation, authorization, and error handling to internal and external consumers.
 
@@ -65,6 +65,8 @@ This glossary defines common distributed-systems, data-management, and context-s
 - **Precondition**: A condition that must hold before a use case or operation can begin.
 
 - **Provenance**: The record of inputs, parameters, software versions, execution environment, hardware/scheduler details, and lineage needed to explain and reproduce results.
+
+- **Run record**: The top-level durable context record for one pipeline run. It establishes the run identifier and stores run-scoped metadata such as domain, policy bundle, orchestration driver identity, initial inputs, timestamps, status, and location/layout configuration. Other context records, including plans, attempts, artifacts, checkpoints, annotations, and provenance records, are linked back to the run record.
 
 - **Schema’d / typed record**: A structured record with explicit fields and versions (as opposed to untyped “bags” like free-form dictionaries).
 
@@ -114,7 +116,7 @@ This glossary defines common distributed-systems, data-management, and context-s
 
 - **NRO**: Nobeyama Radio Observatory; in these docs, a single-dish pipeline/export variant with NRO-specific products and manifests.
 
-- **Orchestration driver**: A front-end that creates and drives execution against the pipeline context. The current pipeline supports multiple orchestration drivers: PPR command lists (ALMA/VLA automated processing), XML procedures (production recipes), and interactive task calls (developer/operator sessions). The context must remain a stable state contract across all drivers (Pipeline UC-11).
+- **Orchestration driver**: A front-end that creates and drives execution against the pipeline context. In the current production environment, PLDriver is the equivalent system responsible for driving pipeline execution. The current pipeline also supports multiple driver styles: PPR command lists (ALMA/VLA automated processing), XML procedures (production recipes), and interactive task calls (developer/operator sessions). The context must remain a stable state contract across all drivers (Pipeline UC-11).
 
 - **OUS**: Observing Unit Set; an ALMA processing/package identity used by the current pipeline when naming and exporting standard products.
 

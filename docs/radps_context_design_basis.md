@@ -16,7 +16,7 @@ See also:
 - **Data model**: archive inputs (e.g., ASDM) convert to a normalized observation representation.
 - **Scale**: multi-TB artifacts, very large spectral cubes (up to ~1.2M channels), significantly increased SPWs. These figures should be treated as **top-end outputs**, not the typical case.
 - **Efficiency (common case)**: the context design must scale to larger datasets, but should remain efficient for smaller/more common runs; avoid “worst-case-first” tradeoffs that significantly degrade day-to-day performance.
-- **Execution**: planner service generates a **dependency graph at runtime**; execution is distributed, with concurrent workers and overlapping work whenever dependencies allow.
+- **Execution**: the workflow orchestration layer generates a **dependency graph at runtime**; execution is distributed, with concurrent workers and overlapping work whenever dependencies allow.
 - **State semantics**: shared state must have **ACID semantics** (multi-writer correctness is required).
 - **Operations**: intermediates must remain **locally available** (for pause/inspect/manual intervention); resumability, targeted reruns, and incremental updates are required.
 - **Interfaces**: workers and external systems need stable, typed query, update, and event interfaces to the current processing state.
@@ -38,9 +38,9 @@ Out of scope here (though context must *record* their outcomes):
 - scheduler specifics, worker placement, autoscaling
 - UI details
 - algorithm design
-- full orchestration implementation (we assume a planner/executor exists)
+- full workflow orchestration implementation (we assume an orchestration layer exists)
 
-Within that scope, the planner and executor are **actors** that read/write context, and the context store is the system-of-record.
+Within that scope, the workflow orchestration layer and workers are **actors** that read/write context, and the context store is the system-of-record.
 
 ## Requirement trace and ownership alignment
 
@@ -69,7 +69,7 @@ The Pipeline analysis collapses to 15 broad responsibilities. The table below ma
 |---|---|---|---|---|
 | 1 | Static Observation & Project Data | UC-01, UC-03 | RADPS-UC1, RADPS-UC10 | Stable identifiers and cross-dataset identity records replace MS-name lookups and single-master assumptions. |
 | 2 | Mutable Observation State | UC-01, UC-02 | RADPS-UC10, RADPS-UC20, RADPS-UC21 | Derived datasets are registered with lineage and version history instead of mutating the original inventory in place. |
-| 3 | Path Management | UC-12, UC-19, GAP-02 | RADPS-UC1, RADPS-UC4 | Paths become artifact locations or access policies, not embedded process-local strings. |
+| 3 | Path Management | UC-12, UC-19, GAP-02 | RADPS-UC1, RADPS-UC4 | Paths become artifact locations or access metadata, not embedded process-local strings. |
 | 4 | Imaging State Management | UC-05 | RADPS-UC12 | Typed, versioned, partition-scoped. |
 | 5 | Calibration State Management | UC-04 | RADPS-UC11 | Transactional, multi-entry, versioned, removable. |
 | 6 | Image Library Management | UC-06 | RADPS-UC4, RADPS-UC8 | Separate views (science/cal/RMS/sub-product) can be layered over the registry if needed. |
@@ -99,7 +99,7 @@ The biggest semantic change is multi-writer concurrency:
 
 - The “context” is no longer an in-process mutable object that tasks modify directly.
 - Instead, tasks emit **transactional updates** (events or patches) to a run-scoped store.
-- Consumers (planner, UI, report generators, operators, external dashboards) read from the same consistent store.
+- Consumers (workflow orchestration layer, UI, report generators, operators, external dashboards) read from the same consistent store.
 
 ### Interfaces: from in-process access to stable APIs and event feeds
 
@@ -119,7 +119,7 @@ The biggest semantic change is multi-writer concurrency:
   - stable IDs
   - content hashes (when feasible)
   - lineage links (which node/attempt produced them)
-  - one or more storage-agnostic locations (local path, shared FS path, object store URI, access policy)
+  - one or more storage-agnostic locations (local path, shared FS path, object store URI, access metadata)
 
 ## Proposed RADPS Context Specification (minimum viable)
 
@@ -161,7 +161,7 @@ For each artifact record:
 - Type (dataset partition, calibration table, image cube, plot bundle, weblog, manifest, etc.)
 - Producer reference (the originating node and attempt)
 - Lineage (input artifact references)
-- Locations (storage-agnostic references and access policy references)
+- Locations (storage-agnostic references and access metadata references)
 - Version / supersedes links when reruns or incremental updates produce new results
 - Lifecycle state (retention policy, garbage-collect eligibility)
 
@@ -201,7 +201,7 @@ Using the requirement-derived GAP set from [docs/requirements_and_ownership.md](
 - **GAP-03 Provenance and reproducibility**: requires immutable per-attempt records, input hashing, and lineage capture so past runs can be precisely reproduced or audited. This is handled primarily by RADPS-UC3, RADPS-UC8, and RADPS-UC19.
 - **GAP-04 Partial re-execution / targeted stage re-run**: requires explicit dependency tracking and invalidation semantics at the context level so selective re-runs can invalidate or preserve downstream state correctly. This is handled primarily by RADPS-UC6.
 - **GAP-05 External system integration**: requires stable identifiers, event subscriptions, and exportable summaries/manifests so external dashboards and ingest systems can track state without waiting for offline products. This is handled primarily by RADPS-UC15 and RADPS-UC18.
-- **GAP-06 Initialization from intermediate state**: requires the context to ingest archival products and materialize a valid mid-pipeline state that the workflow layer can resume from without replaying earlier stages. This is handled primarily by RADPS-UC22.
+- **GAP-06 Initialization from intermediate state**: requires the context to import archival products and materialize a valid mid-pipeline state that the workflow layer can resume from without replaying earlier stages. This is handled primarily by RADPS-UC22.
 - **GAP-07 Explicit tag-based execution control**: requires persisted execution-control tags on datasets or stages so the workflow layer can pause, skip, or reroute work based on durable context state. This is handled primarily by RADPS-UC23.
 - **GAP-08 Heterogeneous dataset coordination and flexible matching semantics**: requires flexible SPW/field/source/column matching semantics plus override hooks across heterogeneous collections rather than assuming a single-master-MS model. This is handled primarily by RADPS-UC10 and RADPS-UC21.
 

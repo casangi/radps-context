@@ -26,8 +26,6 @@ RADPS-UC<number>: <title>
         The people, teams, or consuming groups this use case matters to. Stakeholders are not necessarily the same as actors.
     Frequency:
         How frequently (e.g., high/medium/low) the stakeholder group anticipates encountering the use case.
-    Importance:
-        How important (e.g., high/medium/low) the use case is to the stakeholder group for achieving their objectives.
     Actors:
         Actors are entities that interact directly with the system (user, service, worker).
     Goals:
@@ -70,12 +68,12 @@ Notes:
     - **Domain teams**: Groups responsible for domain- or observatory-specific extensions, policies, metadata, or state models.
     - **External system operators**: People responsible for integrating, operating, or supporting external systems that consume run state, events, or exported summaries.
 - Actor definitions:
-    - **Context system**: The `radps-context` subsystem itself: the service or library boundary that owns the run ledger, artifact registry, provenance records, typed query/update APIs, validation, authorization checks, transaction boundaries, and durable event/state updates. It is listed as an actor when the use case requires behavior from the context component, rather than only from an external caller.
     - **Operator**: A human or automation acting on behalf of operations to create, inspect, annotate, pause, resume, or rerun processing.
-    - **Planner service**: The component that creates or revises the planned dependency graph and submits plan metadata to the context.
-    - **Executor/controller**: The workflow-side component that schedules work, observes runnable state, dispatches workers, and coordinates retries or resume behavior.
+    - **Workflow orchestration layer**: The workflow-side system or service, such as Prefect or a future equivalent, that creates or revises dependency graphs, schedules work, observes runnable state, dispatches workers, and coordinates retries or resume behavior.
     - **Worker**: A task execution process that reads context state, writes artifacts, and submits state/provenance updates for a node attempt.
-    - **Reporting, QA, heuristic, ingest, lifecycle, and external services/tools**: Specialized consumers or producers that query context state, submit domain-specific updates, register artifacts, or subscribe to events for their respective workflows.
+    - **Ingest service**: A service or automation that registers new or incremental input data with context.
+    - **Archive import service**: A service or automation that retrieves or stages pre-existing archival products and submits them to context to initialize a run from an intermediate state.
+    - **Reporting, QA, heuristic, lifecycle, and external services/tools**: Specialized consumers or producers that query context state, submit domain-specific updates, register artifacts, or subscribe to events for their respective workflows.
 
 RADPS-UC1: Initialize or Load a Run Context
 
@@ -86,10 +84,8 @@ RADPS-UC1: Initialize or Load a Run Context
         Operations, Pipeline developers, QA reviewers.
     Frequency:
         High.
-    Importance:
-        High.
     Actors:
-        Operator (human or automation), Planner service, Context system.
+        Operator (human or automation), Workflow orchestration layer.
     Goals:
         Create a new run record with stable identifiers, initial metadata, and run-level location configuration, or load an existing run for resume. The context must be driver-agnostic: any orchestration front-end (automated batch, interactive session, recipe evaluator) must produce an equivalent run record, and the context specification must remain stable across drivers (Pipeline UC-11). Run identity, driver metadata, and artifact location/layout policy must be first-class context data so save/restore and export workflows remain portable (Pipeline UC-12, UC-19).
     Preconditions:
@@ -119,24 +115,22 @@ RADPS-UC2: Persist a Plan Representation (Plan Registration)
         Pipeline developers, Operations, Audit and reproducibility consumers.
     Frequency:
         High (at least once per run; may recur on re-plan).
-    Importance:
-        High.
     Actors:
-        Planner service, Context system.
+        Workflow orchestration layer.
     Goals:
         Record the planned computation structure so execution and reporting can be tied back to an explicit plan.
     Preconditions:
-        A run record exists; planner has produced a dependency-graph plan structure and policy provenance.
+        A run record exists; the workflow orchestration layer has produced a dependency-graph plan structure and policy provenance.
     Postconditions / Outputs:
         A plan record exists and is associated to the run; nodes have stable identifiers.
     Context Data / Artifacts:
-        Stores plan definition, partitioning keys, planner version, policy bundle hash, and user-supplied parameters.
+        Stores plan definition, partitioning keys, orchestration/planning version, policy bundle hash, and user-supplied parameters.
     Transaction / Idempotency Notes:
         Register-plan must be atomic; plan updates should be append-only (new plan revision) rather than in-place mutation.
     Observability / Audit:
         Record a PlanRegistered event with plan provenance.
     Basic Flow:
-        1. Planner submits plan definition to Context system.
+        1. Workflow orchestration layer submits plan definition to Context system.
         2. Context system validates schema and links plan to run.
         3. Context system returns the plan reference and node identifier map.
     Alternative Flows (optional):
@@ -151,10 +145,8 @@ RADPS-UC3: Record a Node Attempt Lifecycle and Maintain Execution History (Start
         Operations, Pipeline developers, QA reviewers, Reporting consumers, Audit and reproducibility consumers.
     Frequency:
         Very high (per executed node attempt).
-    Importance:
-        High.
     Actors:
-        Executor/worker, Context system.
+        Workflow orchestration layer, Worker.
     Goals:
         Track node execution state under retries and failures, with consistent status and timing. The aggregate of all attempt records must form a queryable, ordered execution history suitable for progress tracking, reporting, QA, debugging, and export (Pipeline UC-07, UC-08, UC-15, UC-17, UC-19). Node ordering within the dependency graph replaces current-pipeline stage numbering and must remain coherent across resumes.
     Preconditions:
@@ -186,10 +178,8 @@ RADPS-UC4: Register Produced Artifacts with Lineage
         Operations, QA reviewers, Reporting consumers, Audit and reproducibility consumers.
     Frequency:
         Very high.
-    Importance:
-        High.
     Actors:
-        Worker, Context system (artifact registry).
+        Worker.
     Goals:
         Make artifacts discoverable and traceable: what was produced, by whom, from what inputs, and where it lives across supported storage backends.
     Preconditions:
@@ -197,7 +187,7 @@ RADPS-UC4: Register Produced Artifacts with Lineage
     Postconditions / Outputs:
         An artifact record exists with type, lineage, and one or more locations; the artifact is linked to the producing attempt.
     Context Data / Artifacts:
-        Writes artifact metadata, optional hashes/checksums, retention hints, and one or more storage-agnostic location references/access policies.
+        Writes artifact metadata, optional hashes/checksums, retention hints, and one or more storage-agnostic location references/access metadata.
     Transaction / Idempotency Notes:
         Registration must be idempotent for the same logical artifact/content and allow multiple durable locations to be attached without creating duplicate logical artifacts.
     Observability / Audit:
@@ -219,10 +209,8 @@ RADPS-UC5: Create and Validate an Explicit Checkpoint
         Operations, Pipeline developers.
     Frequency:
         Medium to high (stage boundaries; before expensive fan-out).
-    Importance:
-        High.
     Actors:
-        Executor/controller, Operator, Context system.
+        Workflow orchestration layer, Operator.
     Goals:
         Define a durable “safe restart point” that references a closed set of artifacts/state.
     Preconditions:
@@ -250,10 +238,8 @@ RADPS-UC6: Resume or Partial Re-run with Downstream Invalidation
         Operations, Pipeline developers, QA reviewers.
     Frequency:
         Medium.
-    Importance:
-        High.
     Actors:
-        Operator/automation, Context system.
+        Operator/automation.
     Goals:
         Resume a run safely from a checkpoint or re-run a subgraph/partition while maintaining provenance and explicit dependency/invalidation semantics.
     Preconditions:
@@ -269,7 +255,7 @@ RADPS-UC6: Resume or Partial Re-run with Downstream Invalidation
     Basic Flow:
         1. Actor requests resume/rerun for a scope.
         2. Context system marks downstream state stale according to the dependency graph and records the rerun intent.
-        3. Executor observes runnable nodes and proceeds (out of scope here).
+        3. Workflow orchestration layer observes runnable nodes and proceeds (out of scope here).
     Alternative Flows (optional):
         - Resume fails due to schema/version incompatibility; system returns a structured incompatibility error.
         - Requested rerun scope overlaps active work; system rejects the rerun or requires cancellation/serialization before proceeding.
@@ -283,10 +269,8 @@ RADPS-UC7: Operator Annotation and Controlled Overrides
         Operations, QA reviewers, Science support, Audit and reproducibility consumers.
     Frequency:
         Medium.
-    Importance:
-        Medium to high.
     Actors:
-        Operator/QA reviewer, Context system.
+        Operator/QA reviewer.
     Goals:
         Record human decisions (notes, approvals, override parameters) as durable, auditable context state.
     Preconditions:
@@ -314,10 +298,8 @@ RADPS-UC8: Export Provenance Manifest / Report as an Artifact
         Operations, QA reviewers, Reporting consumers, Archive consumers, Audit and reproducibility consumers.
     Frequency:
         High (at least once per run; may be re-generated).
-    Importance:
-        High.
     Actors:
-        Reporting service, Context system.
+        Reporting service.
     Goals:
         Produce machine-readable manifests and/or human-readable reports based solely on durable context + registered artifacts.
     Preconditions:
@@ -346,10 +328,8 @@ RADPS-UC9: Artifact Retention and Tombstoning (Safe Cleanup)
         Operations, Audit and reproducibility consumers.
     Frequency:
         Medium.
-    Importance:
-        Medium to high.
     Actors:
-        Lifecycle manager, Operator, Context system.
+        Lifecycle manager, Operator.
     Goals:
         Apply retention/cleanup without breaking resumability or provenance.
     Preconditions:
@@ -378,10 +358,8 @@ RADPS-UC10: Query Dataset / Observation Catalog (Read-Only View)
         Pipeline developers, QA reviewers, Reporting consumers.
     Frequency:
         Very high.
-    Importance:
-        High.
     Actors:
-        Worker, heuristic service, QA/reporting service, external consumer/tool, Context system.
+        Worker, heuristic service, QA/reporting service, external consumer/tool.
     Goals:
         Provide fast, consistent access to observation metadata (catalog inventory, fields, SPWs, scans, data-type metadata, and cross-dataset identity/matching records) required by tasks, heuristics, external consumers, and reporting. This is the read-only catalog surface underlying more specialized matching workflows such as UC21. Returned records must be typed and stable enough that consumers do not depend on storage layout or implementation details.
     Preconditions:
@@ -410,10 +388,8 @@ RADPS-UC11: Apply Transactional Calibration State Update
         Pipeline developers, Operations, QA reviewers.
     Frequency:
         High.
-    Importance:
-        High.
     Actors:
-        Worker, Context system.
+        Worker.
     Goals:
         Atomically record a set of calibration state changes produced by a task.
     Preconditions:
@@ -441,10 +417,8 @@ RADPS-UC12: Update Imaging State (Schema’d Scratch Pad)
         Pipeline developers, Operations, Reporting consumers.
     Frequency:
         High.
-    Importance:
-        High.
     Actors:
-        Worker, Context system.
+        Worker.
     Goals:
         Replace ad-hoc imaging attributes with a versioned, typed imaging state document that supports partition-scoped updates.
     Preconditions:
@@ -472,10 +446,8 @@ RADPS-UC13: Provide Read-Only Snapshot for QA/Reporting/Rendering/Debugging
         QA reviewers, Reporting consumers, Pipeline developers, Operations.
     Frequency:
         High.
-    Importance:
-        High.
     Actors:
-        QA/reporting service, debugging/inspection tools, CI harness, external consumer/tool, Context system.
+        QA/reporting service, debugging/inspection tools, CI harness, external consumer/tool.
     Goals:
         Provide a consistent read view of run state and artifact registry for rendering, QA, export, and inspection without depending on worker memory. Must also support debugging use cases: diagnosing failures (what ran, what data was loaded, what state was produced), validating deterministic outputs, and surfacing failures beyond raw task exceptions (Pipeline UC-15, UC-16, UC-17, UC-19). Snapshot queries should be available through a stable, typed contract for reporting tools, external dashboards, and inspection clients.
     Preconditions:
@@ -505,10 +477,8 @@ RADPS-UC14: Resolve Named Outputs Instead of Stage-Index Walking
         Pipeline developers, Operations.
     Frequency:
         High.
-    Importance:
-        High.
     Actors:
-        Worker, downstream consumer/tool, Context system.
+        Worker, downstream consumer/tool.
     Goals:
         Allow downstream tasks and consumers to discover upstream outputs by stable keys (names/types/scopes) instead of walking an ordered results list or depending on storage layout.
     Preconditions:
@@ -536,10 +506,8 @@ RADPS-UC15: Append-Only Event Log / Patch Log (Audit + Replay)
         Operations, Pipeline developers, QA reviewers, External system operators, Audit and reproducibility consumers.
     Frequency:
         Very high.
-    Importance:
-        High.
     Actors:
-        Context system, workers/executor, reporting/monitoring consumers.
+        Workflow orchestration layer, workers, reporting/monitoring consumers.
     Goals:
         Maintain an append-only record of significant lifecycle events and/or state patches so that run evolution is auditable and (where feasible) replayable.
     Preconditions:
@@ -568,10 +536,8 @@ RADPS-UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
         Domain teams, Pipeline developers, Operations.
     Frequency:
         Medium.
-    Importance:
-        Medium to high.
     Actors:
-        Worker/planner, Context system.
+        Worker, Workflow orchestration layer.
     Goals:
         Support domain-specific state without reintroducing untyped “state bags”, while keeping the core context specification stable.
     Preconditions:
@@ -585,7 +551,7 @@ RADPS-UC16: Register and Query Domain-Specific Extensions (ngVLA/WSU)
     Observability / Audit:
         Emit ExtensionRegistered/ExtensionUpdated events.
     Basic Flow:
-        1. Planner or operator enables an extension type for a run (schema/version).
+        1. Workflow orchestration layer or operator enables an extension type for a run (schema/version).
         2. Workers write scoped extension updates during execution.
         3. Consumers query extension state via typed APIs.
     Alternative Flows (optional):
@@ -600,10 +566,8 @@ RADPS-UC17: Worker Snapshot Read + Transactional Write-Back (Distributed Executi
         Operations, Pipeline developers.
     Frequency:
         Very high.
-    Importance:
-        High.
     Actors:
-        Executor/worker, Context system.
+        Workflow orchestration layer, Worker.
     Goals:
         Allow workers to read a consistent snapshot of required context state while ensuring all writes return through ACID transactions rather than worker-local serialized state, including asynchronous and overlapping execution of independent work across partitions. The same transactional semantics must be available through the supported context contract so workers are not coupled to storage layout or process-local implementation details.
     Preconditions:
@@ -634,10 +598,8 @@ RADPS-UC18: Publish Run State to External Systems
         Operations, QA reviewers, Archive consumers, External system operators.
     Frequency:
         High.
-    Importance:
-        High.
     Actors:
-        External consumer/service, Context system, notification dispatcher.
+        External consumer/service, notification dispatcher.
     Goals:
         Provide timely, stable access to current processing state, lifecycle events, and summary views without requiring consumers to scrape product files or worker-local storage. The design must support both pull-style queries and push-style subscriptions for selected lifecycle events through stable, typed contracts.
     Preconditions:
@@ -667,10 +629,8 @@ RADPS-UC19: Capture Reproducibility Envelope and Immutable Attempt Provenance
         Operations, QA reviewers, Audit and reproducibility consumers.
     Frequency:
         High.
-    Importance:
-        High.
     Actors:
-        Worker, reporting service, Context system.
+        Worker, reporting service.
     Goals:
         Capture the immutable provenance required to reproduce or audit a run: exact input identities/hashes, parameters, software versions, execution environment, hardware, execution-control details, and lineage links for each attempt and exported product.
     Preconditions:
@@ -700,10 +660,8 @@ RADPS-UC20: Register Incremental Dataset Updates and Versioned Results
         Operations, Pipeline developers, External system operators.
     Frequency:
         Medium to high.
-    Importance:
-        High.
     Actors:
-        Ingest service, planner/executor, Context system.
+        Ingest service, Workflow orchestration layer.
     Goals:
         Allow new data to be registered into an active run/session, trigger incremental processing, and ensure new outputs are versioned rather than overwriting prior results.
     Preconditions:
@@ -717,7 +675,7 @@ RADPS-UC20: Register Incremental Dataset Updates and Versioned Results
     Observability / Audit:
         Emit DatasetVersionRegistered and IncrementalProcessingRequested events with ingest source and scope.
     Basic Flow:
-        1. Ingest system submits new dataset material or a new version reference for an active run.
+        1. Ingest service submits new dataset material or a new version reference for an active run.
         2. Context system registers the dataset version and determines the affected scopes/nodes.
         3. Context system marks the relevant work runnable and ensures subsequent outputs are versioned.
     Alternative Flows (optional):
@@ -733,10 +691,8 @@ RADPS-UC21: Resolve Heterogeneous Cross-Dataset Matches and Override Rules
         Pipeline developers, Operations, Science support.
     Frequency:
         High.
-    Importance:
-        High.
     Actors:
-        Worker, heuristic service, operator, Context system.
+        Worker, heuristic service, operator.
     Goals:
         Resolve shared identity across heterogeneous datasets that do not share native SPW numbering, field numbering, source labels, or data-column layouts. Matching must support exact semantics for calibration-style consumers, overlap/partial semantics for imaging-style consumers, and explicit override rules with recorded rationale when defaults are ambiguous or incorrect.
     Preconditions:
@@ -766,24 +722,22 @@ RADPS-UC22: Initialize Context from Intermediate Archival State
         Operations, Archive consumers, External system operators.
     Frequency:
         Medium.
-    Importance:
-        High.
     Actors:
-        Archive ingest service, operator, Context system.
+        Archive import service, operator.
     Goals:
         Materialize a valid mid-pipeline run state from pre-existing archival products or other previously generated durable artifacts so that earlier stages can be skipped and later stages can execute against a normal-looking context state.
     Preconditions:
-        Archival products are identifiable and accessible; the target run exists or is being created; the ingestion policy identifies which prior stages are considered satisfied.
+        Archival products are identifiable and accessible; the target run exists or is being created; the import policy identifies which prior stages are considered satisfied.
     Postconditions / Outputs:
         Dataset, artifact, calibration/imaging, and provenance records required for the imported boundary exist in context and are linked to their archival sources; the restored boundary is marked as a valid resume point.
     Context Data / Artifacts:
         Writes dataset/catalog records, imported artifact registrations, imported state snapshots or equivalent typed records, provenance links to archival sources, and resume-boundary metadata.
     Transaction / Idempotency Notes:
-        Initialization must be atomic for the declared boundary so the run never exposes a partially reconstructed mid-pipeline state. Repeating the same ingest request must be idempotent for the same archival source set.
+        Initialization must be atomic for the declared boundary so the run never exposes a partially reconstructed mid-pipeline state. Repeating the same import request must be idempotent for the same archival source set.
     Observability / Audit:
         Emit IntermediateStateInitialized events with source identities, imported stage boundary, actor identity, and any fields that were inferred rather than directly imported.
     Basic Flow:
-        1. Actor submits archival products and declares the intended initialization boundary.
+        1. Archive import service submits archival products and declares the intended initialization boundary.
         2. Context system validates the source products, required metadata, and compatibility of the imported state.
         3. Context system registers the imported artifacts and writes the corresponding typed state records.
         4. Context system marks the resulting state as a valid resume boundary for downstream workflow logic.
@@ -800,10 +754,8 @@ RADPS-UC23: Persist Execution-Control Tags for Workflow Decisions
         Operations, Pipeline developers, Audit and reproducibility consumers.
     Frequency:
         Medium.
-    Importance:
-        High.
     Actors:
-        Operator, heuristic service, workflow service, Context system.
+        Operator, heuristic service, Workflow orchestration layer.
     Goals:
         Persist execution-control tags (for example pause, skip, or reroute directives) on runs, datasets, or stage scopes so the workflow layer can reliably enforce them throughout the lifetime of the run.
     Preconditions:
@@ -820,7 +772,7 @@ RADPS-UC23: Persist Execution-Control Tags for Workflow Decisions
         1. Actor submits an execution-control tag for a run, dataset, or stage scope.
         2. Context system validates authorization, scope, and any existing conflicting tag state.
         3. Context system records the tag and returns the persisted state.
-        4. Workflow services query the tag state before scheduling or continuing affected work.
+        4. Workflow orchestration layer queries the tag state before scheduling or continuing affected work.
     Alternative Flows (optional):
         - Submitted tag conflicts with a locked or already-effective control decision; request is rejected unless an authorized override workflow is used.
-        - Workflow service requests tags for an unknown scope; Context system returns a structured not-found error.
+        - Workflow orchestration layer requests tags for an unknown scope; Context system returns a structured not-found error.
