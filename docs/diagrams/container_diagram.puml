@@ -1,0 +1,45 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' --- tags ---
+AddElementTag("scope", $bgColor="#E8F5F0", $borderColor="#0F6E56", $fontColor="#0F6E56")
+AddElementTag("build", $bgColor="#B8E0D2", $borderColor="#0F6E56")
+
+title flowviper — Container diagram 
+
+Person(operator, "Pipeline operator", "operations")
+Person(developer, "Pipeline/heuristics developer", "dev & debug")
+
+System_Ext(orchestrator, "Orchestrator", "Prefect: scheduling, run history, dashboard", $tags="scope")
+System_Ext(reporting, "Reporting", "data reduction report, weblog, stats")
+System_Ext(archive, "Archive", "external system")
+
+System_Boundary(pipeline, "flowviper") {
+  Container(radps_context, "radps-context", "Python", "Domain state (working memory of a run) + artifact references", $tags="scope+build")
+  Container(tasks, "Pipeline tasks", "Python / CASA", "data processing")
+  Container(heuristics, "Heuristics", "decision logic")
+  Container(qa, "QA framework", "quality scores")
+  ContainerDb(context_db, "Context store", "TBD", "snapshots for resume/re-run", $tags="build")
+  ContainerDb(registry, "Artifact & provenance registry", "TBD", "Artifact metadata + locations; execution records (pipeline version, parameters, outcome, Prefect run ID).", $tags="build")
+  ContainerDb(artifacts, "Artifacts", "file storage", "Calibration tables, datasets, report inputs (plot data, stats)")
+}
+
+' --- relationships ---
+Rel(operator, orchestrator, "1 · runs the pipeline; monitors via dashboard")
+Rel(operator, radps_context, "2 · direct restore & inspect")
+Rel(orchestrator, tasks, "3 · schedules & executes")
+Rel_U(orchestrator, radps_context, "4 · control tags out; exec record in")
+Rel(tasks, radps_context, "5 · read state; update state")
+Rel(heuristics, radps_context, "6 · query state")
+Rel(qa, radps_context, "7 · read state; write scores")
+Rel(reporting, registry, "8a · query artifact metadata & provenance")
+Rel(reporting, artifacts, "8b · read report inputs")
+Rel(radps_context, context_db, "9 · persist / restore snapshots")
+Rel(radps_context, registry, "10 · register artifacts; write execution record")
+Rel(tasks, artifacts, "11 · produce / consume (incl. exported report inputs)")
+Rel(registry, artifacts, "12 · references by path/URI")
+Rel(radps_context, archive, "13 · export; init from archive")
+Rel(developer, radps_context, "14 · inspect & debug")
+
+SHOW_LEGEND()
+@enduml
