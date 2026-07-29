@@ -7,74 +7,93 @@ The use cases detailed in “Pipeline Context Use Cases” were derived from the
 
 In the current pipeline, all of these capabilities are provided by a single context system with no separate workflow orchestrator or other components: domain state, execution tracking, and inter-stage communication are all handled by this one system. A central goal of the RADPS redesign is to separate those concerns. This document builds off of the current pipeline use cases document by evaluating each use case on two fronts: whether it satisfies a related RADPS requirement, and if so, which architectural component should be responsible for it -- `radps-context` and the workflow orchestration layer (currently Prefect), with other layers potentially added in the future.
 
-After an initial investigation, `xradio` was not included in this assessment. While the workflow orchestrator can be allocated responsibilities that` radps-context` would otherwise hold, the interactions with `xradio` will be internal to `radps-context` and affect how it fetches, e.g., observation metadata — not what it is responsible for.
+After an initial investigation, `xradio` was not included in this assessment. While the workflow orchestrator can be allocated responsibilities that `radps-context` would otherwise hold, the interactions with `xradio` will be internal to `radps-context` and affect how it fetches, e.g., observation metadata — not what it is responsible for.
 
 `radps-context` will be a software component of RADPS responsible for maintaining and providing access to pipeline processing domain state — including observation metadata, calibration state, imaging state, and produced artifacts — throughout the lifecycle of a pipeline run. The workflow orchestration layer will manage task scheduling, execution, and non-domain-specific state.
 
-Based on this evaluation, the use cases are first mapped to RADPS requirements (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated. In Section 3, current context use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated responsible component. For use cases that were not cleanly separable between `radps-context` and the workflow orchestration, the responsibilities of each component are called out.
+Based on this evaluation, the use cases are first mapped to RADPS requirements and requirements-only RADPS use cases (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated and mapped to the related RADPS use cases. In Section 3, current context use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated responsible component. For use cases that were not cleanly separable between `radps-context` and the workflow orchestration, the responsibilities of each component are called out.
 
 ## 1. Context UCs and RADPS Requirements
 
-This section lists the RADPS requirements associated with each current pipeline use case. 
+This section lists the RADPS requirements and requirements-only RADPS use cases associated with each current pipeline use case.
 Full descriptions of the associated use cases are available in the documents listed at the end of this file.
 
 UC-01 — Populate, Access, and Provide Observation Metadata  
-RADPS Requirements: ALMA-TR48, ALMA-TR107, CSS9018
+RADPS Requirements: ALMA-TR48, ALMA-TR107, CSS9018 \
+Related RADPS Use Cases: RADPS-UC1, RADPS-UC10, RADPS-UC20
 
 UC-02 — Cross-MS Metadata Matching and Lookup  
-RADPS Requirements: ALMA-TR07, ALMA-TR10
+RADPS Requirements: ALMA-TR07, ALMA-TR10 \
+Related RADPS Use Cases: RADPS-UC10, RADPS-UC21
 
 UC-03 — Store and Provide Project-Level Metadata  
-RADPS Requirements: ALMA-TR48
+RADPS Requirements: ALMA-TR48 \
+Related RADPS Use Cases: RADPS-UC1
 
 UC-04 — Register, Query, and Update Calibration State  
-RADPS Requirements: ALMA-TR53
+RADPS Requirements: ALMA-TR53 \
+Related RADPS Use Cases: RADPS-UC11
 
 UC-05 — Manage Imaging State  
-RADPS Requirements: ALMA-TR53
+RADPS Requirements: ALMA-TR53 \
+Related RADPS Use Cases: RADPS-UC12
 
 UC-06 — Register and Query Produced Image Products  
-RADPS Requirements: ALMA-TR51.1, ALMA-TR51.2, ALMA-TR65
+RADPS Requirements: ALMA-TR51.1, ALMA-TR51.2, ALMA-TR65 \
+Related RADPS Use Cases: RADPS-UC4, RADPS-UC8 \
 Related to ALMA-TR66, but this requirement is out of scope. 
 
 UC-07 — Track Current Execution Progress  
-RADPS Requirements: CSS9037, CSS9034, CSS9064.1
+RADPS Requirements: CSS9037, CSS9034, CSS9064.1 \
+Related RADPS Use Cases: RADPS-UC2, RADPS-UC3, RADPS-UC18
 
 UC-08 — Preserve Per-Stage Execution Record  
-RADPS Requirements: CSS9051, ALMA-TR105, CSS9010
+RADPS Requirements: CSS9051, ALMA-TR105, CSS9010 \
+Related RADPS Use Cases: RADPS-UC2, RADPS-UC3, RADPS-UC15, RADPS-UC19
 
 UC-09 — Propagate Task Outputs to Downstream Tasks  
-RADPS Requirements: CSS9063, CSS9063.5
+RADPS Requirements: CSS9063, CSS9063.5 \
+Related RADPS Use Cases: RADPS-UC14, RADPS-UC17
 
 UC-10 — Provide a Transient Intra-Stage Workspace  
-RADPS Requirements: ALMA-TR74, ALMA-TR24
+RADPS Requirements: ALMA-TR74, ALMA-TR24 \
+Related RADPS Use Cases: RADPS-UC6, RADPS-UC17
 
 UC-11 — Support Multiple Orchestration Drivers  
-RADPS Requirements: ALMA-TR47, ALMA-TR31
+RADPS Requirements: ALMA-TR47, ALMA-TR31 \
+Related RADPS Use Cases: RADPS-UC1
 
 UC-12 — Save and Restore a Processing Session  
-RADPS Requirements: ALMA-TR29, ALMA-TR30, CSS9038, CSS9034
+RADPS Requirements: ALMA-TR29, ALMA-TR30, CSS9038, CSS9034 \
+Related RADPS Use Cases: RADPS-UC1, RADPS-UC5, RADPS-UC6, RADPS-UC9, RADPS-UC20, RADPS-UC22
 
 UC-13 — Provide State to Parallel Workers  
-RADPS Requirements: CSS9600, CSS9064.2 *(Note: Discarded/Replaced, see Section 3)*
+RADPS Requirements: CSS9600, CSS9064.2 \
+Related RADPS Use Cases: Replaced by RADPS-UC17 *(see Section 3)*
 
 UC-14 — Aggregate Results from Parallel Workers  
-RADPS Requirements: CSS9600, CSS9064.2 *(Note: Discarded/Replaced, see Section 3)*
+RADPS Requirements: CSS9600, CSS9064.2 \
+Related RADPS Use Cases: Replaced by RADPS-UC17 *(see Section 3)*
 
 UC-15 — Provide Read-Only State for Reporting  
-RADPS Requirements: ALMA-TR50.4, ALMA-TR83
+RADPS Requirements: ALMA-TR50.4, ALMA-TR83 \
+Related RADPS Use Cases: RADPS-UC3, RADPS-UC8, RADPS-UC13, RADPS-UC18
 
 UC-16 — Support QA Evaluation and Store Quality Assessments  
-RADPS Requirements: ALMA-TR49, ALMA-TR50
+RADPS Requirements: ALMA-TR49, ALMA-TR50 \
+Related RADPS Use Cases: RADPS-UC13
 
 UC-17 — Support Inspection and Debugging  
-RADPS Requirements: ALMA-TR27, ALMA-TR28, ALMA-TR112
+RADPS Requirements: ALMA-TR27, ALMA-TR28, ALMA-TR112 \
+Related RADPS Use Cases: RADPS-UC3, RADPS-UC6, RADPS-UC7, RADPS-UC13, RADPS-UC15, RADPS-UC19
 
 UC-18 — Manage Telescope- and Array-Specific State  
-RADPS Requirements: ALMA-TR07.1, ALMA-TR07.2, ALMA-TR08, ALMA-TR05, ALMA-TR03
+RADPS Requirements: ALMA-TR07.1, ALMA-TR07.2, ALMA-TR08, ALMA-TR05, ALMA-TR03 \
+Related RADPS Use Cases: RADPS-UC16, RADPS-UC21
 
 UC-19 — Provide State for Product Export  
-RADPS Requirements: ALMA-TR51, CSS9066
+RADPS Requirements: ALMA-TR51, CSS9066 \
+Related RADPS Use Cases: RADPS-UC1, RADPS-UC3, RADPS-UC4, RADPS-UC8, RADPS-UC9, RADPS-UC13, RADPS-UC18, RADPS-UC19
 
 ## 2. GAP Use Cases 
 
@@ -89,7 +108,8 @@ The following gap use cases capture critical system capabilities that are explic
 | **Invariant** | Independent tasks may run asynchronously but must not produce conflicting state. |
 | **Postconditions** | Results from asynchronously executed tasks are fully and consistently incorporated into processing state before any dependent work begins. |
 | **RADPS requirements** | CSS9017, CSS9063, CSS9064.2, CSS9600 |
-| **Notes** | GAP-01 covers all parallel/asynchronous execution functionality, which includes the current pipeline use cases UC-13 and UC-14. |
+| **Related RADPS use cases** | RADPS-UC17 |
+| **Notes** | GAP-01 covers all parallel/asynchronous execution functionality, which includes the current Pipeline use cases UC-13 and UC-14. |
 
 ### GAP-02 — Distributed Execution Without a Shared Filesystem
 
@@ -99,15 +119,17 @@ The following gap use cases capture critical system capabilities that are explic
 | **Summary** | Execution must be possible across nodes that do not share a filesystem. Artifacts, datasets, and processing state must be addressable and accessible without relying on local paths. |
 | **Postconditions** | Processing completes across distributed nodes with references in the context providing the necessary artifact access. |
 | **RADPS requirements** | CSS9002, CSS9030 |
+| **Related RADPS use cases** | RADPS-UC4, RADPS-UC17 |
 
 ### GAP-03 — Provenance and Reproducibility
 
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, auditor, reproducibility tooling |
-| **Summary** | The system must record sufficient provenance to enable precise reproduction and audit of past runs. This provenance is of two kinds: domain-specific (which datasets, calibrations, and products were derived from which inputs), and execution-environment detail (software versions, task parameters, per-stage execution state, CPU architecture, node/cluster specification, kernel, workload-manager/scheduler configuration, and relevant scheduler limits).
+| **Summary** | The system must record sufficient provenance to enable precise reproduction and audit of past runs. This provenance is of two kinds: domain-specific (which datasets, calibrations, and products were derived from which inputs), and execution-environment detail (software versions, task parameters, per-stage execution state, CPU architecture, node/cluster specification, kernel, workload-manager/scheduler configuration, and relevant scheduler limits). |
 | **Postconditions** | Any past processing step can be reproduced or audited using the recorded provenance chain. |
 | **RADPS requirements** | ALMA-TR103, ALMA-TR104, ALMA-TR105 |
+| **Related RADPS use cases** | RADPS-UC8, RADPS-UC19 |
 
 ### GAP-04 — Partial Re-execution / Targeted Stage Re-run
 
@@ -117,6 +139,7 @@ The following gap use cases capture critical system capabilities that are explic
 | **Summary** | The context must support selectively re-running one or more mid-pipeline stages with new parameters while preserving unaffected stages. Downstream stages that depend on changed outputs must be invalidated or recomputed. |
 | **Postconditions** | Processing state reflects the re-run outcomes; affected downstream stages are invalidated or updated; unaffected stages remain intact. |
 | **RADPS requirements** | CSS9038 |
+| **Related RADPS use cases** | RADPS-UC5, RADPS-UC6, RADPS-UC20 |
 
 ### GAP-05 — External System Integration
 
@@ -127,6 +150,7 @@ The following gap use cases capture critical system capabilities that are explic
 | **Invariant** | External consumers can access the processing state they require while it remains current. |
 | **Postconditions** | External systems can track processing progress and lifecycle transitions in near real time. |
 | **RADPS requirements** | CSS9046, CSS9047, CSS9048, CSS9049, CSS9050, CSS9056 |
+| **Related RADPS use cases** | RADPS-UC8, RADPS-UC15, RADPS-UC18 |
 
 ### GAP-06 — Initialization from Intermediate State
 
@@ -136,16 +160,18 @@ The following gap use cases capture critical system capabilities that are explic
 | **Summary** | The context must be initializable from pre-existing archival products so that it appears as a valid mid-pipeline state. This allows the pipeline to skip stages whose outputs are already available (e.g., calibration products archived from a prior run) and resume execution from an intermediate point without reprocessing from scratch. |
 | **Postconditions** | The context reflects a valid mid-pipeline state constructed from ingested archival products. Separately, the workflow engine can identify and skip stages covered by that state. |
 | **RADPS requirements** | CSS9038 |
+| **Related RADPS use cases** | RADPS-UC6, RADPS-UC22 |
 
 ### GAP-07 — Explicit Tag-Based Execution Control
 
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operators, workflow orchestration layer, heuristics |
-| **Summary** | The context must store metadata tags (e.g., `[PAUSE]`, `[SKIP]`) associated with datasets or pipeline stages that actively influence workflow execution and make the information available to the workflow orchestration system.|
+| **Summary** | The context must store metadata tags (e.g., `[PAUSE]`, `[SKIP]`) associated with datasets or pipeline stages that actively influence workflow execution and make the information available to the workflow orchestration system. |
 | **Invariant** | Tags affecting execution control are durably recorded in the context and remain readable by the workflow layer throughout the pipeline run. |
 | **Postconditions** | Workflow execution is modified in accordance with persisted tags; any tag-driven halts or diversions are recorded alongside their rationale. |
 | **RADPS requirements** | CSS9037 |
+| **Related RADPS use cases** | RADPS-UC7, RADPS-UC23 |
 
 ### GAP-08 — Heterogeneous Dataset Coordination and Flexible Matching Semantics
 
@@ -156,11 +182,12 @@ The following gap use cases capture critical system capabilities that are explic
 | **Invariant** | SPW, field, source, and data-column identity are queryable across all registered datasets, regardless of whether those datasets share native numbering or column layout. |
 | **Postconditions** | Downstream tasks can look up applicable SPWs, fields, sources, and data columns across an arbitrary collection of heterogeneous MSes using the appropriate matching semantics for their use, and any user or heuristic overrides are recorded alongside their rationale. |
 | **RADPS requirements** | ALMA-TR07 |
+| **Related RADPS use cases** | RADPS-UC7, RADPS-UC10, RADPS-UC21 |
 | **Notes** | UC-02 covers the baseline cross-MS lookup capability currently supported by the context: a unified SPW identifier scheme with a single name-based matching strategy. GAP-08 extends this to multiple selectable matching semantics, additional metadata dimensions (fields, sources, column layouts), and user/heuristic override hooks — none of which are currently supported. |
 
 ## 3. Not Applicable to RADPS (Discarded)
 
-These use cases reflect specific architectural choices made in the design of the current pipeline and are not applicable to the future design of RADPS. Similar functionality is now covered by GAP-01.
+These use cases reflect specific architectural choices made in the design of the current pipeline and are not applicable to the future design of RADPS. Similar functionality is now covered by GAP-01 and replaced by RADPS-UC17.
 
 UC-13 — Provide State to Parallel Workers
 
@@ -183,7 +210,7 @@ UC-18 — Manage Telescope- and Array-Specific State
 UC-19 — Provide State for Product Export  
 GAP-08 — Heterogeneous Dataset Coordination and Flexible Matching Semantics
 
-### Workflow orchestration layer only 
+### Workflow orchestration layer only
 
 UC-07 and UC-08 can be fully satisfied by a workflow orchestration system such as Prefect and do not need to be implemented in `radps-context`. 
 
@@ -269,4 +296,3 @@ The following documents were used to determine the relevant RADPS use cases:
 * CSS Stakeholder Needs – SDA, SDP, SIT, TI  
 * Data Processing and Archive Workflow Stakeholder Needs  
 * Computing and Software System Design Description: SDP
-

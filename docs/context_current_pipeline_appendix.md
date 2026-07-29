@@ -8,7 +8,7 @@ This document contains implementation details and reference material that supple
 
 The following implementation notes describe how selected use cases are realized in the current pipeline codebase. They were separated from the use-case definitions to keep the requirements document focused on requirements; use cases not listed here do not currently have appendix-level implementation notes in this document.
 
-### UC-01 — Load, Update, and Provide Access to Observation Metadata
+### UC-01 — Populate, Access, and Provide Observation Metadata
 
 **Implementation notes** — `context.observing_run` holds the observation metadata and is the most frequently queried attribute of the context:
 
@@ -18,6 +18,8 @@ The following implementation notes describe how selected use cases are realized 
 - Provenance attributes: `start_datetime`, `end_datetime`, `project_ids`, `schedblock_ids`, `execblock_ids`, `observers`
 
 The MS objects stored by `context.observing_run` carry information about scans, fields, SPWs, antennas, reference antenna ordering, etc. Tasks read per-MS state like `ms.reference_antenna`, `ms.session`, `ms.start_time`, `ms.origin_ms`.
+
+Transformed datasets are generally represented by new `MeasurementSet` domain objects. Tasks such as `h_mssplit`, `hif_mstransform`, `hifv_mstransform`, and `hif_transformimagedata` propagate the source object's `origin_ms` value to the new object before the accepted result adds it to `context.observing_run`. This preserves a source reference for derived datasets, but the current implementation does not retain every dataset object immutably: replace-mode transforms can remove the source entry, and rerunning tasks such as single-dish baseline/atmospheric correction or `hif_uvcontsub` can replace a previously registered output with the same name.
 
 For the single-dish pipeline, this use case also includes per-MS `DataTable` products referenced through `context.observing_run.ms_datatable_name`. These are not just raw imported metadata tables: they persist row-level metadata and derived quantities used by downstream SD tasks. During SD import, the reader populates `DataTable` columns such as `RA`, `DEC`, `AZ`, `EL`, `SHIFT_RA`, `SHIFT_DEC`, `OFS_RA`, and `OFS_DEC`, including coordinate conversions into the pipeline's chosen celestial frame (for example ICRS) so later imaging, gridding, plotting, and QA code can reuse those values efficiently.
 
@@ -151,6 +153,8 @@ They differ in how inputs are specified, how session paths are selected, and how
 - Per-stage results are proxied to disk (`saved_state/result-stageX.pickle`) to keep the in-memory context smaller
 - Used by driver-managed breakpoint/resume (`executeppr(..., bpaction='resume')`) and developer debugging workflows
 
+Relocation support is partial rather than automatic. `ResultsProxy` stores only each result pickle's basename and reconstructs its path from the loaded context's `output_dir` and `name`; `products_dir` is also stored relative to `output_dir`. The lower-level `launcher.Pipeline` loader accepts `path_overrides` that can replace selected context properties after loading, but `h_resume()` does not expose those overrides or recompute all dependent paths. Dataset paths and any external data state must therefore already be valid or be adjusted/restored separately before processing continues.
+
 Note: The current implementation does not handle restoring data state to a past processing state and as such does not have a built-in, robust "true resume". If the data directory needs to be restored to match a saved context snapshot, this must be done manually (e.g. via having created a snapshot of the data at an earlier stage, and then restoring this state) before resuming.
 
 ---
@@ -165,6 +169,18 @@ Note: The current implementation does not handle restoring data state to a past 
 4. For `Tier0JobRequest` (lower-level distribution), the executor is shallow-copied *excluding* the context reference to stay within the pipeline-enforced MPI buffer limit (100 MiB). Comments in the code note CASA's higher native limit (~150 MiB; see PIPE-1337 / CAS-13656).
 
 The current implementation uses a read-only worker model: workers do not modify shared processing state directly, and results are committed through a result-accept/merge flow.
+
+---
+
+### UC-14 — Aggregate Results from Parallel Workers
+
+**Implementation notes** — worker execution is deliberately separated from context mutation:
+
+- `TaskQueue` in `pipeline/infrastructure/mpihelpers.py` collects return values from synchronous, MPI, or Dask-backed tasks through `get_results()`. It does not itself merge those returned objects into the shared context.
+- `Tier0PipelineTask` sends a pickled context snapshot to a worker and returns the worker task's result. The worker-side context is a private copy.
+- `Tier0JobRequest` uses an executor copy with its context reference removed and executes with `merge=False`; `Executor.execute(..., merge=True)` is explicitly unavailable for that context-free executor.
+- Aggregating tasks normally collect worker results into a parent result object and then publish combined state when that parent result is accepted. For example, `makeimages` collects `TcleanResult` worker outputs into `MakeImagesResult`; `MakeImagesResult.merge_with_context()` then registers produced images in `context.sciimlist` / `context.calimlist` and updates shared imaging state.
+- For child jobs that run in-process with a context-bearing executor, `Executor.execute(job, merge=True)` commits the child result immediately by calling `result.accept(self._context)`.
 
 ---
 
@@ -196,6 +212,19 @@ QA handlers write scores to `result.qa.pool` and do not modify the shared contex
 
 ---
 
+### UC-17 — Support Inspection and Debugging
+
+**Implementation notes** — debugging state is preserved through the same acceptance and persistence mechanisms used for normal execution:
+
+- `Results.accept(context)` records failure diagnostics by wrapping top-level acceptance failures in `FailedTaskResults`, preserving the exception, traceback, stage number, inputs, and timestamps before appending the stage result.
+- Top-level accepted results are written as `ResultsProxy` pickles under `saved_state/result-stageX.pickle`; the proxy stores only the basename so saved contexts can be moved more easily.
+- `ResultsProxy._write_stage_logs()` writes per-stage CASA log snippets into the weblog stage directory (`stageX/casapy.log`) and removes the in-memory log payload from the result pickle.
+- When DEBUG logging is enabled, `Results.accept()` also writes `saved_state/context-stageX.pickle`, a full context snapshot at the end of that stage, for developer inspection.
+- `WebLogGenerator.render(context)` temporarily replaces `context.results` with fully unpickled result objects while rendering, then restores the proxy list afterward.
+- Test and CI utilities load the most recent context for sanity checks and result extraction. They explicitly release the loaded context and run garbage collection because `Context -> ResultsProxy -> Context -> results` forms reference cycles that can otherwise retain large contexts between tests.
+
+---
+
 ### UC-18 — Manage Telescope- and Array-Specific State
 
 **Implementation notes** — the current codebase shows at least two different forms of telescope-/array-specific state.
@@ -212,6 +241,20 @@ Another is ALMA TP / single-dish state, which is array-specific rather than tele
 
 ---
 
+### UC-19 — Provide State for Product Export
+
+**Implementation notes** — the base export task and telescope-specific subclasses assemble products from several parts of the context:
+
+- `ExportData.prepare()` creates `inputs.products_dir`, derives the OUS/status prefix from `context.get_oussid()` and `context.project_structure.recipe_name`, and exports standard OUS products from `context.logs`: PPR, weblog tarball, pipeline script, restore script, and CASA commands log.
+- `_make_lists()` builds visibility and session lists from `context.observing_run.measurement_sets`, optionally filtering MSes by whether the MS has imaging data columns.
+- Calibration and restore products are assembled from the active processing state: final flag versions, per-MS apply lists, per-session calibration table tarballs, and optionally final MS exports.
+- `_export_images()` exports calibrator and science images from the context image libraries; the manifest records calibrator and target image products separately.
+- `_make_pipe_manifest()` records CASA version, pipeline version, execution environment, recipe/procedure name, PPR, weblog, commands log, pipeline script, restore script, calibration products, MS products, and exported images using `pipeline/h/tasks/common/manifest.py`.
+- ALMA, VLA, and SD export subclasses add auxiliary products and AQUA reports, then update the manifest. These auxiliary products can include continuum/flux/antenna files, target flag templates, timetracker reports, selfcal restore resources from `context.selfcal_resources`, pipeline statistics, auxiliary caltables, and auxiliary apply files.
+- VLA export additionally handles flat-noise FITS products associated with exported target images. NRO export extends the SD path with a reduction template script and `nroscalefile.csv`, then records them in the NRO manifest.
+
+---
+
 ## Key Implementation References
 
 - `Context` / `Pipeline`: `pipeline/infrastructure/launcher.py`
@@ -224,6 +267,7 @@ Another is ALMA TP / single-dish state, which is array-specific rather than tele
 - MPI distribution: `pipeline/infrastructure/mpihelpers.py`
 - QA framework: `pipeline/infrastructure/pipelineqa.py`, `pipeline/qa/`
 - Weblog renderer: `pipeline/infrastructure/renderer/htmlrenderer.py`
+- Product export and manifests: `pipeline/h/tasks/exportdata/`, `pipeline/hif/tasks/exportdata/`, `pipeline/hifv/tasks/exportdata/`, `pipeline/hsd/tasks/exportdata/`, `pipeline/h/tasks/common/manifest.py`
 
 ---
 
