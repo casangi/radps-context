@@ -10,7 +10,7 @@ These requirements define observable guarantees that apply across the RADPS cont
 
 An operation that changes multiple related pieces of processing state must become visible as one complete outcome or have no visible effect. Consumers must not observe a partially applied calibration update, restart boundary, archival import, or similar multi-part change.
 
-Applies primarily to RADPS-UC5, RADPS-UC6, RADPS-UC11, RADPS-UC12, RADPS-UC20, RADPS-UC22, and RADPS-UC23.
+Applies primarily to RADPS-UC1 through RADPS-UC3, RADPS-UC5, RADPS-UC6, RADPS-UC9, RADPS-UC11, RADPS-UC12, RADPS-UC17 through RADPS-UC20, RADPS-UC22, and RADPS-UC23.
 
 ### RADPS-QR2 - Consistent Reads
 
@@ -22,7 +22,7 @@ Applies primarily to RADPS-UC10, RADPS-UC13, RADPS-UC14, RADPS-UC17, RADPS-UC18,
 
 Independent work may proceed concurrently, but incompatible updates must not silently overwrite or combine with one another. Conflicts must be detected or prevented, and dependent work must not proceed on incomplete upstream outcomes.
 
-Applies primarily to RADPS-UC3, RADPS-UC6, RADPS-UC11, RADPS-UC12, RADPS-UC17, RADPS-UC20, and RADPS-UC23.
+Applies primarily to RADPS-UC3, RADPS-UC6, RADPS-UC11, RADPS-UC12, RADPS-UC17, RADPS-UC20, RADPS-UC21, and RADPS-UC23.
 
 ### RADPS-QR4 - Retry Safety
 
@@ -40,7 +40,7 @@ Applies to all state-changing use cases.
 
 Runs, data versions, planned work, execution attempts, artifacts, and meaningful processing boundaries must remain unambiguously identifiable for as long as they are referenced. Relationships among inputs, work, outcomes, and superseded state must remain traceable.
 
-Applies primarily to RADPS-UC1 through RADPS-UC8, RADPS-UC14, RADPS-UC15, and RADPS-UC19 through RADPS-UC22.
+Applies primarily to RADPS-UC1 through RADPS-UC8, RADPS-UC14 through RADPS-UC16, and RADPS-UC19 through RADPS-UC23.
 
 ### RADPS-QR7 - Location and Execution Portability
 
@@ -54,14 +54,14 @@ Consumers must be able to determine whether the context information and operatio
 
 Applies to all use cases involving independently deployed consumers.
 
-### RADPS-QR9 - Authorization and Attribution
+### RADPS-QR9 - Actor Attribution
 
-Only permitted actors may read or change protected processing state. Security-relevant changes, operator decisions, and overrides must be attributable to the responsible actor.
+For an accepted change whose origin is relevant to later processing or audit, the context must record the identity of the responsible actor and the run, data, work, artifact, or other scope affected by that change.
 
-Applies primarily to RADPS-UC1, RADPS-UC6, RADPS-UC7, RADPS-UC9, RADPS-UC13, RADPS-UC15, RADPS-UC18, RADPS-UC21, RADPS-UC22, and RADPS-UC23.
+Applies to all state-changing use cases.
 
 ### RADPS-QR10 - Auditability and Reproducibility
 
 The system must retain sufficient information to explain significant state changes and processing outcomes. Repeating processing with equivalent inputs, software, parameters, and resource conditions should produce equivalent results within declared numerical tolerances; deviations must be explainable from retained provenance.
 
-Applies primarily to RADPS-UC2, RADPS-UC3, RADPS-UC4, RADPS-UC6 through RADPS-UC8, RADPS-UC15, and RADPS-UC19 through RADPS-UC23.
+Applies primarily to RADPS-UC2, RADPS-UC3, RADPS-UC4, RADPS-UC6 through RADPS-UC8, RADPS-UC13, RADPS-UC15, and RADPS-UC19 through RADPS-UC23.

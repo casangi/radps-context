@@ -8,7 +8,7 @@ future RADPS design.
 
 ## RADPS Requirements
 
-- [docs/radps_context_use_cases.md](docs/radps_context_use_cases.md): Requirements-only RADPS context use cases describing actor goals and observable outcomes.
+- [docs/radps_context_use_cases.md](docs/radps_context_use_cases.md): RADPS context use cases describing actor goals and observable outcomes.
 - [docs/radps_context_quality_requirements.md](docs/radps_context_quality_requirements.md): Cross-cutting behavioral guarantees that apply to the RADPS context use cases.
 
 ## Current Pipeline Analysis

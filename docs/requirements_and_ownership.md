@@ -11,11 +11,11 @@ After an initial investigation, `xradio` was not included in this assessment. Wh
 
 `radps-context` will be a software component of RADPS responsible for maintaining and providing access to pipeline processing domain state — including observation metadata, calibration state, imaging state, and produced artifacts — throughout the lifecycle of a pipeline run. The workflow orchestration layer will manage task scheduling, execution, and non-domain-specific state.
 
-Based on this evaluation, the use cases are first mapped to RADPS requirements and requirements-only RADPS use cases (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated and mapped to the related RADPS use cases. In Section 3, current context use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated responsible component. For use cases that were not cleanly separable between `radps-context` and the workflow orchestration, the responsibilities of each component are called out.
+Based on this evaluation, the use cases are first mapped to RADPS requirements and RADPS use cases (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated and mapped to the related RADPS use cases. In Section 3, current context use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated responsible component. For use cases that were not cleanly separable between `radps-context` and the workflow orchestration, the responsibilities of each component are called out.
 
 ## 1. Context UCs and RADPS Requirements
 
-This section lists the RADPS requirements and requirements-only RADPS use cases associated with each current pipeline use case.
+This section lists the RADPS requirements and RADPS use cases associated with each current pipeline use case.
 Full descriptions of the associated use cases are available in the documents listed at the end of this file.
 
 UC-01 — Populate, Access, and Provide Observation Metadata  
