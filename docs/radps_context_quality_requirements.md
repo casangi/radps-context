@@ -38,7 +38,7 @@ Applies to all state-changing use cases.
 
 ### RADPS-QR6 - Stable Identity and Traceability
 
-Runs, data versions, planned work, execution attempts, artifacts, and meaningful processing boundaries must remain unambiguously identifiable for as long as they are referenced. Relationships among inputs, work, outcomes, and superseded state must remain traceable.
+Runs, data versions, planned work, execution attempts, artifacts, and meaningful processing boundaries must remain unambiguously identifiable for as long as they are referenced, including boundaries recorded as unavailable. Relationships among inputs, work, outcomes, and superseded state must remain traceable.
 
 Applies primarily to RADPS-UC1 through RADPS-UC8, RADPS-UC14 through RADPS-UC16, and RADPS-UC19 through RADPS-UC23.
 
@@ -50,7 +50,7 @@ Applies primarily to RADPS-UC1, RADPS-UC4, RADPS-UC13, RADPS-UC17, RADPS-UC18, a
 
 ### RADPS-QR8 - Compatibility and Explicit Failure
 
-Consumers must be able to determine whether the context information and operations they use are compatible with them. Unsupported or ambiguous requests must fail explicitly rather than returning silently misinterpreted state.
+Consumers must be able to determine whether the context information and operations they use are compatible with them. Unsupported or ambiguous requests, including persisted or imported state using an incompatible context-model version, must fail explicitly with compatibility or migration guidance rather than returning silently misinterpreted state.
 
 Applies to all use cases involving independently deployed consumers.
 

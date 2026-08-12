@@ -28,7 +28,7 @@ RADPS-UC<number>: <title>
     Actors:
         Actors are logical roles that interact directly with the system.
     Goals:
-        Outcomes of actor interactions. Include context as necessary.
+        Outcomes of actor interactions.
     Preconditions:
         Conditions that must be true before the use case can be executed.
     Postconditions / Outputs:
@@ -93,6 +93,7 @@ RADPS-UC1: Initialize or Load a Run Context
         3. Context system establishes the run (or identifies the existing run) and returns its identity.
     Alternative Flows (optional):
         - The existing run information is incompatible with the requesting consumer; the request fails with a clear explanation.
+        - The existing run was created under an unsupported or incompatible context-model version; loading is rejected with the detected version and migration or compatibility guidance.
         - The orchestration actor supplies additional project or performance information during initialization; Context system preserves it as part of the initial run information.
 
 RADPS-UC2: Record Planned Work
@@ -218,6 +219,7 @@ RADPS-UC6: Resume or Partial Re-run with Downstream Invalidation
         3. Workflow orchestration layer uses the updated state to determine and schedule the required work.
     Alternative Flows (optional):
         - Existing run information cannot be interpreted sufficiently to resume safely; the request fails with a clear explanation.
+        - The requested checkpoint or resume boundary references an unavailable or unverifiable artifact; resume is rejected with the missing artifact identified, and the boundary is recorded as unavailable.
         - Requested rerun scope overlaps active work; the conflicting request is not accepted, and the actor is informed which work prevents the rerun.
 
 RADPS-UC7: Operator Annotation and Controlled Overrides
@@ -448,13 +450,13 @@ RADPS-UC16: Maintain Domain-Specific Context Information (ngVLA/WSU)
     Postconditions / Outputs:
         Extension state is available for the run and, when relevant, its dataset or partition scope. Changes remain distinguishable and attributable to the responsible actor.
     Required Information / Artifacts:
-        Extension type, scope, state, responsible actor, time, and related artifacts.
+        Extension type, declared validation contract or structure, scope, state, responsible actor, time, and related artifacts.
     Basic Flow:
         1. Workflow orchestration layer or operator enables an extension type for a run.
         2. Workers submit scoped extension updates during execution.
         3. Consumers obtain the extension state for the relevant scope.
     Alternative Flows (optional):
-        - The extension type or submitted information is not recognized; the update is rejected with a clear explanation.
+        - The extension type or submitted information is not recognized or is inconsistent with the declared type, scope, or schema; the update is rejected with a clear explanation.
 
 RADPS-UC17: Worker Consistent Read and State Update (Distributed Execution)
 
@@ -608,6 +610,7 @@ RADPS-UC22: Initialize Context from Intermediate Archival State
     Alternative Flows (optional):
         - Imported products are insufficient to construct a valid boundary; initialization is rejected with a list of missing state elements.
         - Imported information conflicts with immutable run state already present; Context system rejects the import and explains the conflict.
+        - Imported state uses an unsupported or incompatible context-model version; Context system rejects the import with migration or compatibility guidance.
 
 RADPS-UC23: Maintain Execution-Control Tags for Workflow Decisions
 

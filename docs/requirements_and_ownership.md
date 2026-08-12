@@ -241,8 +241,8 @@ These use cases involve both the workflow manager system and `radps-context` com
 
 **UC-12 — Save and Restore a Processing Session**
 
-* **`radps-context`:** Needs to provide the mechanism to save and restore the domain state.
-* **Workflow system:** Manages the actual resumption of the execution graph, tracking which tasks need to be restarted and picking up the execution flow from the restored point.
+* **`radps-context`:** Needs to provide the mechanism to save and restore compatible domain state and identify unusable restore boundaries.
+* **Workflow system:** Manages the actual resumption of the execution graph from a usable compatible boundary, tracking which tasks need to be restarted and picking up the execution flow from the restored point.
 
 **UC-15 — Provide Read-Only State for Reporting**
 

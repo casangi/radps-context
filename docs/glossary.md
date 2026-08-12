@@ -14,6 +14,10 @@ This glossary defines terms used by the current Pipeline and RADPS context requi
 
 - **Consistency**: The guarantee that processing state obeys its declared rules and that a consumer does not receive mutually incompatible information in one view.
 
+- **Context-model version**: The version identifier for a persisted context representation and the rules used to interpret it.
+
+- **Compatibility / migration guidance**: Explicit information returned when context state or an operation is unsupported, identifying the compatibility issue and, when available, a supported path to use or migrate the state.
+
 - **Context**: The processing state and associated relationships needed by pipeline work throughout a run. The requirements do not prescribe whether that context is implemented as an object, service, database, or another mechanism.
 
 - **Dependency graph**: A representation of planned work and the dependencies that determine which work may proceed.
@@ -43,6 +47,8 @@ This glossary defines terms used by the current Pipeline and RADPS context requi
 - **Precondition**: A condition that must hold before a use case can begin.
 
 - **Processing boundary**: A meaningful point in processing at which the applicable state and completed outputs can be identified consistently, for example when establishing a restart point or producing a report.
+
+- **Unavailable processing boundary**: A traceable processing boundary that cannot safely be used because a required artifact cannot be accessed or verified. This differs from stale state, which has been superseded or invalidated by subsequent processing.
 
 - **Provenance**: Information needed to explain or reproduce processing, including inputs, parameters, software, execution environment, hardware and resource conditions, control decisions, and lineage.
 
