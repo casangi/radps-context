@@ -1,5 +1,7 @@
 # RADPS Use Cases
 
+This document defines first-draft RADPS context use cases. It focuses on context behavior (run state, artifact information, and provenance) rather than the entire RADPS workflow.
+
 ## Use Case Template
 
 Adapted from “Use Case Modeling” by Kurt Bittner and Ian Spence.
@@ -44,8 +46,6 @@ RADPS-UC<number>: <title>
 
 ## Draft RADPS Use Cases
 
-These are first-draft entries focused on **context** (run state, artifact information, and provenance), not the entire RADPS workflow.
-
 Notes:
 
 - These use `UC*` numbering for easy cross-reference.
@@ -63,12 +63,22 @@ Notes:
     - **Domain teams**: Groups responsible for domain- or observatory-specific extensions, policies, metadata, or state models.
     - **External system operators**: People responsible for integrating, operating, or supporting external systems that consume run state, processing changes, or exported summaries.
 - Actor definitions:
-    - **Operator**: A human or automation acting on behalf of operations to create, inspect, annotate, pause, resume, or rerun processing.
-    - **Workflow orchestration layer**: The logical workflow participant that creates or revises dependency graphs, determines and schedules work, dispatches workers, and coordinates retries or resume behavior.
-    - **Worker**: A task execution process that reads context state, writes artifacts, and submits state/provenance updates for a node attempt.
-    - **Incremental data provider**: A logical participant that supplies new or incremental input data for an active run.
-    - **Archive importer**: A logical participant that supplies pre-existing archival products and related information to initialize a run from an intermediate state.
-    - **Specialized consumers and producers**: Logical participants that obtain context information, submit domain-specific updates, identify artifacts, or receive relevant processing changes for reporting, QA, heuristics, retention, or external integration.
+    The following actors are logical roles that interact directly with the Context system. They may be fulfilled by people, automated services, or other runtime components, as appropriate.
+    - **Operator**: Acts on behalf of operations to create, inspect, annotate, pause, resume, or rerun processing.
+    - **Workflow orchestration layer**: Creates or revises dependency graphs, determines and schedules work, dispatches workers, and coordinates retries or resume behavior.
+    - **Worker**: Performs planned work, reads context state, writes artifacts, and submits state and provenance updates for an execution attempt.
+    - **Incremental data provider**: Supplies identifiable additional data or dataset versions to an active run. It does not imply continuous or real-time data streaming.
+    - **Archive importer**: Supplies pre-existing archival products and related information to initialize a run from an intermediate state.
+    - **Retention actor**: Is authorized to apply retention policy, record retention decisions, and coordinate cleanup of affected artifact locations.
+    - **Heuristic**: Evaluates available context information to derive or recommend processing decisions, mappings, or parameter values under an applicable policy.
+    - **Downstream consumer**: Obtains registered upstream outputs to perform dependent work.
+    - **External consumer**: Outside the Context system, requests or receives run state, artifacts, or processing changes for integration with another system.
+    - **Report producer**: Creates reports, manifests, or other derived summaries from context information.
+    - **QA reviewer**: Assesses processing quality, recorded QA outcomes, or release readiness using context information.
+    - **QA or reporting consumer**: Obtains context information to assess quality or present processing results.
+    - **Reporting or monitoring consumer**: Obtains lifecycle and state-change information to present status, track progress, or trigger monitoring behavior.
+    - **Debugging or inspection consumer**: Obtains context information to investigate processing behavior, failures, or state.
+    - **Regression consumer**: Compares execution history, outputs, or failure signals across runs to assess repeatability or detect regressions.
 
 RADPS-UC1: Initialize or Load a Run Context
 
@@ -78,7 +88,7 @@ RADPS-UC1: Initialize or Load a Run Context
     Relevant Stakeholders
         Operations, Pipeline developers, QA reviewers.
     Actors:
-        Operator (human or automation), Workflow orchestration layer.
+        Operator, Workflow orchestration layer.
     Goals:
         Establish a run with stable identity, initial information, and artifact-location information, or recover an existing run for resume. Equivalent run information must be available regardless of the orchestration front-end (automated batch, interactive session, or recipe evaluator) (Pipeline UC-11). Run identity, orchestration origin, and artifact locations must remain available so resume and export workflows are portable (Pipeline UC-12, UC-19).
     Preconditions:
@@ -204,7 +214,7 @@ RADPS-UC6: Resume or Partial Re-run with Downstream Invalidation
     Relevant Stakeholders
         Operations, Pipeline developers, QA reviewers.
     Actors:
-        Operator (human or automation).
+        Operator.
     Goals:
         Resume a run safely from a checkpoint or re-run a subgraph/partition while maintaining provenance and explicit dependency/invalidation semantics.
     Preconditions:
