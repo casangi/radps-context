@@ -5,13 +5,19 @@ The pipeline context is the central state object used for a pipeline execution. 
 
 This document catalogues the use cases of the current pipeline context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS.
 
+> **Historical scope:** This document records behavior of the current Pipeline.
+> It does not assign that behavior to `radps-context`. Reporting, export,
+> archive, operator-facing, and other external interactions described here must
+> be reallocated under the RADPS boundary defined in
+> [requirements_and_ownership.md](requirements_and_ownership.md).
+
 For additional details about the current implementation and reference material, see [Supplementary Analysis](context_current_pipeline_appendix.md).
 
 ---
 
 ## Use Cases
 
-Each use case describes the required capabilities of the context system and the interactions through which those capabilities are exercised. They are written to be implementation-neutral — the goal is to capture what the context must do, not how the current pipeline implementation achieves it. For pipeline-specific implementation details by use case, see [Implementation Notes by Use Case](context_current_pipeline_appendix.md#implementation-notes-by-use-case) in the appendix.
+Each use case describes capabilities exercised through the current Pipeline context. They are written to be implementation-neutral so the behavior can be evaluated without treating the current implementation as the future design. For pipeline-specific implementation details by use case, see [Implementation Notes by Use Case](context_current_pipeline_appendix.md#implementation-notes-by-use-case) in the appendix.
 
 The following fields are used in each use case:
 
@@ -27,8 +33,8 @@ The following fields are used in each use case:
 | | |
 |-------|---------|
 | **Actor(s)** | Data import task, any downstream task, heuristics, renderers, QA handlers |
-| **Summary** | The context must populate (read) observation metadata (datasets, spectral windows, fields, antennas, scans, time ranges), make it queryable by all subsequent processing steps, and allow downstream tasks to access that metadata as processing progresses. When processing produces derived or transformed datasets (for example, calibrated, averaged, or subsetted outputs), the context should register those derived datasets and record lineage rather than mutating the original observation metadata. It must also be able to hold derived or cached metadata products created during import so later stages can reuse them efficiently. |
-| **Invariant** | All populated datasets and derived dataset records remain queryable for the lifetime of the session without repeating the import process. |
+| **Summary** | The context makes observation metadata (datasets, spectral windows, fields, antennas, scans, and time ranges) available to subsequent processing steps. When processing produces derived or transformed datasets, downstream consumers can distinguish them from their source datasets and determine their lineage. Metadata products produced during import remain available for reuse by later stages. |
+| **Invariant** | Observation metadata for datasets in the accepted processing state remains queryable for the lifetime of the session unless intentionally replaced by a subsequent accepted result. |
 
 ---
 
@@ -36,8 +42,8 @@ The following fields are used in each use case:
 | | |
 |-------|---------|
 | **Actor(s)** | Calibration tasks, imaging tasks, heuristics
-| **Summary** | When multiple MSes are registered in the context, downstream tasks must be able to look up and match metadata elements across them even when the MSes use different native numbering. The context must provide a unified identifier scheme (currently for spectral windows) that allows these elements to be referenced consistently across datasets, and must support data-type-aware lookup of MSes and their associated data columns.
-| **Postcondition** | Downstream tasks can resolve applicable metadata across registered MSes using a unified identifier scheme, and can look up MSes and data columns by data type.
+| **Summary** | When multiple MSes are available, downstream tasks can identify corresponding metadata elements across them even when the MSes use different native numbering. Tasks can also find MSes and associated data columns by data type.
+| **Postcondition** | Downstream tasks can resolve corresponding metadata across the available MSes and find MSes and data columns by data type.
 
 ---
 
@@ -76,8 +82,8 @@ The following fields are used in each use case:
 | | |
 |-------|---------|
 | **Actor(s)** | Imaging tasks, export tasks, report generators |
-| **Summary** | The context must maintain typed registries of produced image products with add/query semantics. Later tasks must be able to discover previously produced science, calibrator, RMS, and sub-product images through these registries. |
-| **Invariant** | Produced image products are registered by type and remain queryable for downstream processing, reporting, and export. |
+| **Summary** | The context allows produced science, calibrator, RMS, and sub-product images to be recorded and discovered by later tasks. |
+| **Invariant** | Produced image products remain identifiable by type and available for downstream processing, reporting, and export. |
 
 ---
 
@@ -107,7 +113,7 @@ ___
 |-------|---------|
 | **Actor(s)** | Any task producing output, downstream tasks |
 | **Summary** | When a task produces outputs that change the processing state (e.g., new calibrations, updated flag summaries, image products, revised parameters), the context must provide a mechanism for those outputs to become available to subsequent processing steps before they execute. UC-04, UC-05, UC-06, and UC-16 are specific instances of this pattern. |
-| **Postconditions** | Downstream tasks can access the propagated processing state they need. |
+| **Postcondition** | Downstream tasks can access the propagated processing state they need. |
 
 ---
 
@@ -116,17 +122,17 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Aggregate tasks, child tasks, task execution framework |
-| **Summary** | Within a stage, the context must be usable as a temporary working space for child-task execution. Child tasks must be able to modify context state destructively while they run, including adding, removing, or replacing tentative calibration and processing state, without requiring explicit cleanup logic. Only outputs that are explicitly accepted into the enclosing task's context should survive stage execution. |
-| **Invariant** | State changes made while executing against a temporary child-task context do not escape that workspace unless they are explicitly accepted and merged. |
-| **Postcondition** | When a child task finishes, the enclosing task retains only the accepted state changes; unaccepted mutations to the temporary workspace are discarded. |
+| **Summary** | Within a stage, child tasks can evaluate tentative changes to calibration and other processing state without changing the enclosing stage's accepted state. |
+| **Invariant** | Tentative child-task changes do not affect the accepted processing state unless the enclosing task accepts them. |
+| **Postcondition** | When a child task finishes, only its accepted state changes are available to subsequent processing. |
 
 ---
 ### UC-11 — Support Multiple Orchestration Drivers
 
 | | |
 |-------|---------|
-| **Actor(s)** | Operations / automated processing (PPR-driven batch), pipeline developer / power user (interactive), recipe executor |
-| **Summary** | The state stored by the context must remain consistent and usable regardless of which orchestration driver created or resumed it. It must be creatable and resumable from non-interactive and interactive drivers (ex: PPR command lists, XML procedures, interactive task calls), support driver-injected run metadata, and tolerate partial execution controls and breakpoint-driven stop/resume semantics. |
+| **Actor(s)** | Automated processing operator, interactive pipeline user, recipe executor |
+| **Summary** | The processing state remains consistent and usable regardless of which orchestration driver created or resumed it. Non-interactive and interactive drivers can supply run metadata, control partial execution, and stop or resume processing. |
 | **Invariant** | Processing state is consistent and usable regardless of which orchestration driver created or resumed it, and success/failure signals are produced when appropriate. |
 
 ---
@@ -136,8 +142,8 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Pipeline operator, workflow orchestration layer, pipeline developer |
-| **Summary** | The context must be able to serialize the complete processing state to disk (all observation data, calibration state, execution history, imaging state, project metadata, etc.) and later restore it so that processing can resume from the saved point, provided the data file state is consistent with the context snapshot. The serialization must preserve enough state to resume; backward compatibility across pipeline releases is not guaranteed. On restore, paths must be adaptable to a new filesystem environment. |
-| **Postcondition** | After restore, the processing state is operationally equivalent to the saved state for supported resume workflows, and processing can continue from the specified point, assuming the data files are in a state consistent with the snapshot used to create the saved context. |
+| **Summary** | The complete processing state is preservable and later recoverable so processing can resume from the preserved point. Some context-owned references can be relocated, but associated data files and paths must be made consistent with the preserved state before processing resumes. Backward compatibility across pipeline releases is not guaranteed. |
+| **Postcondition** | After recovery, the processing state is operationally equivalent to the preserved state for supported resume workflows, and processing can continue when associated data files are consistent with that state. |
 
 ---
 
@@ -146,7 +152,7 @@ ___
 | | |
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer, parallel worker processes |
-| **Summary** | When work is distributed across parallel workers, each worker needs access to the current processing state (observation metadata, calibration state). The context must provide a mechanism for workers to obtain a consistent snapshot of that state, and the snapshot mechanism must support efficient distribution to workers. |
+| **Summary** | When work is distributed across parallel workers, each worker receives a consistent view of the observation metadata, calibration state, and other processing state required for its work. |
 | **Postcondition** | After distribution, each worker has a consistent view of the processing state for the duration of its work. |
 
 ---
@@ -157,7 +163,7 @@ ___
 |-------|---------|
 | **Actor(s)** | Workflow orchestration layer |
 | **Summary** | After parallel workers complete, the context must collect their individual results and incorporate them into the shared processing state. The aggregation must be safe (no conflicting concurrent writes) and complete before the next sequential step begins. |
-| **Postconditions** | The processing state reflects the combined outcomes of all parallel workers. |
+| **Postcondition** | The processing state reflects the combined outcomes of all parallel workers. |
 
 ---
 
@@ -167,7 +173,7 @@ ___
 |-------|---------|
 | **Actor(s)** | Report generators (weblog, quality reports, reproducibility scripts, pipeline statistics) |
 | **Summary** | The context must provide read-only access to the observation metadata, project metadata, execution history (including per-stage domain-specific outputs such as flag summaries and plot references), QA outcomes, log references, and path information needed to generate reporting products such as weblogs, quality reports, reproducibility scripts, and pipeline statistics. |
-| **Postconditions** | Reports accurately reflect the processing state at the time of generation. |
+| **Postcondition** | Reports accurately reflect the processing state at the time of generation. |
 
 ---
 
@@ -177,7 +183,7 @@ ___
 |-------|---------|
 | **Actor(s)** | QA scoring framework, report generators |
 | **Summary** | After each processing step completes, the context must make the relevant processing state available to QA handlers so they can evaluate the outcome against quality thresholds, which may depend on e.g. telescope, project parameters, or observation properties. The resulting quality scores must be recorded and remain retrievable for reporting. |
-| **Postconditions** | Quality scores are associated with the relevant processing step and accessible to reports. |
+| **Postcondition** | Quality scores are associated with the relevant processing step and accessible to reports. |
 
 ---
 
