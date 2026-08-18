@@ -5,11 +5,7 @@ The pipeline context is the central state object used for a pipeline execution. 
 
 This document catalogues the use cases of the current pipeline context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS.
 
-> **Historical scope:** This document records behavior of the current Pipeline.
-> It does not assign that behavior to `radps-context`. Reporting, export,
-> archive, operator-facing, and other external interactions described here must
-> be reallocated under the RADPS boundary defined in
-> [requirements_and_ownership.md](requirements_and_ownership.md).
+> **Historical scope:** This document records behavior of the current Pipeline. It does not assign that behavior to `radps-context`. Reporting, export, archive, operator-facing, and other external interactions described here must be reallocated under the RADPS boundary defined in [requirements_and_ownership.md](requirements_and_ownership.md).
 
 For additional details about the current implementation and reference material, see [Supplementary Analysis](context_current_pipeline_appendix.md).
 

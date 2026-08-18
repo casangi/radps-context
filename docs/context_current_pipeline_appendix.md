@@ -2,10 +2,7 @@
 
 This document contains implementation details and reference material that supplement the use cases in [context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md). These sections were separated to keep the use-case document focused on requirements.
 
-> **Historical scope:** These notes describe the current Pipeline implementation.
-> They are evidence for design decisions, not an ownership specification for
-> RADPS. External-facing behavior documented here remains outside the future
-> `radps-context` boundary unless an internal contract explicitly requires it.
+> **Historical scope:** These notes describe the current Pipeline implementation. They are evidence for design decisions, not an ownership specification for RADPS. External-facing behavior documented here remains outside the future `radps-context` boundary unless an internal contract explicitly requires it.
 
 ---
 
