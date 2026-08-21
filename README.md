@@ -1,22 +1,23 @@
 # radps-context
 
-This repository defines the processing context used inside the RADPS pipeline. `radps-context` maintains pipeline domain state and exposes it through internal interfaces to workers, heuristics, workflow orchestration, and other pipeline components.
+This repository defines what the RADPS context must provide through internal pipeline interfaces and preserves the analysis of current Pipeline behavior that informed those requirements. Use cases describe required capabilities and observable outcomes; current implementation details are documented separately so they do not prescribe the future RADPS design.
 
-External interfaces are outside this component's boundary. A separate subsystem is responsible for user-facing APIs, operator tools, dashboards, notifications, archive integration, product delivery, and other interactions outside the pipeline. That subsystem may consume or submit normalized information through the same internal pipeline interfaces; `radps-context` does not implement the external interaction.
+## RADPS Requirements
 
-## RADPS requirements
+- [docs/radps_context_use_cases.md](docs/radps_context_use_cases.md): RADPS context use cases describing actor goals and observable outcomes.
+- [docs/radps_context_quality_requirements.md](docs/radps_context_quality_requirements.md): Cross-cutting behavioral guarantees that apply to the RADPS context use cases.
 
-- [RADPS context use cases](docs/radps_context_use_cases.md) defines the internal interactions supported by the context.
-- [RADPS context quality requirements](docs/radps_context_quality_requirements.md) defines guarantees at those internal interfaces.
-- [Context use-case mapping and ownership](docs/requirements_and_ownership.md) maps current Pipeline capabilities to the RADPS component boundary.
+## Current Pipeline Analysis
 
-## Current Pipeline analysis
+- [docs/context_use_cases_current_pipeline.md](docs/context_use_cases_current_pipeline.md): Implementation-neutral use cases describing current Pipeline context responsibilities.
+- [docs/context_current_pipeline_appendix.md](docs/context_current_pipeline_appendix.md): Supplementary implementation notes, code references, and lifecycle analysis for the current Pipeline use cases.
 
-- [Pipeline context use cases](docs/context_use_cases_current_pipeline.md) records responsibilities of the current Pipeline context.
-- [Current Pipeline appendix](docs/context_current_pipeline_appendix.md) preserves supporting implementation evidence.
+## Traceability and Responsibility
 
-These historical documents describe the existing system and do not assign future RADPS ownership. In particular, current Pipeline reporting, export, archive, and operator-facing behavior is not automatically in scope for `radps-context`.
+- [docs/requirements_and_ownership.md](docs/requirements_and_ownership.md): Traceability from current Pipeline capabilities and identified gaps to RADPS requirements, together with responsibility allocation across `radps-context` and workflow orchestration.
 
 ## Reference
 
-- [Glossary](docs/glossary.md) defines terminology shared by the requirements and historical analysis.
+- [docs/glossary.md](docs/glossary.md): Definitions for terminology used throughout the RADPS requirements and current Pipeline analysis.
+
+Conceptual and detailed design decisions are outside the scope of these requirements and analysis documents. This project is distributed under the terms in [LICENSE](LICENSE).

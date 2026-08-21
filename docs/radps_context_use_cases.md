@@ -2,18 +2,7 @@
 
 ## Scope
 
-These use cases define the domain-state operations that `radps-context` exposes to components inside the RADPS pipeline. Direct actors are limited to workflow orchestration, workers, heuristics, pipeline tasks, and internal adapters.
-
-The following responsibilities are explicitly outside this boundary:
-
-- public or user-facing APIs and authentication;
-- operator interfaces, dashboards, monitoring, and notifications;
-- archive discovery, retrieval, ingest protocols, and archival delivery;
-- report or manifest formatting, product packaging, and delivery;
-- storage-retention decisions and physical cleanup; and
-- scheduling, worker dispatch, and general execution-history management.
-
-A subsystem responsible for one of those functions may use an internal adapter to read context state or submit a normalized update. The use case begins at that internal interface; it does not include the preceding external interaction or the subsequent delivery of information outside the pipeline.
+These use cases define the domain-state operations that `radps-context` exposes to components inside the RADPS workflow. Interfaces from the workflow to external systems are outside this document's scope.
 
 ## Actors
 
@@ -21,7 +10,6 @@ A subsystem responsible for one of those functions may use an internal adapter t
 - **Worker**: Performs pipeline computation, reads context state, writes artifacts, and submits complete domain outcomes.
 - **Pipeline task**: Performs an internal pipeline operation such as data import, calibration, imaging, QA evaluation, or product preparation.
 - **Heuristic**: Reads domain state and derives processing decisions or mapping proposals under pipeline policy.
-- **Internal adapter**: Submits or retrieves normalized information on behalf of another RADPS subsystem. External protocols and identities remain opaque to the context.
 
 ## Use cases
 
@@ -29,7 +17,7 @@ A subsystem responsible for one of those functions may use an internal adapter t
 
 **Current Pipeline cross-references:** UC-03, UC-11, UC-12.
 
-**Actors:** Workflow orchestration layer, internal ingestion adapter.
+**Actors:** Workflow orchestration layer, data import task.
 
 **Goal:** Establish a run with stable identity and initial domain information, or load compatible persisted context state for internal pipeline use.
 
@@ -55,9 +43,9 @@ A subsystem responsible for one of those functions may use an internal adapter t
 
 **Current Pipeline cross-references:** UC-02, UC-18; GAP-08.
 
-**Actors:** Worker, heuristic, pipeline task, internal adapter.
+**Actors:** Worker, heuristic, pipeline task, workflow orchestration layer.
 
-**Goal:** Resolve corresponding fields, sources, spectral windows, and data columns across datasets using a declared matching mode. An internal adapter may submit a normalized override already authorized by another subsystem.
+**Goal:** Resolve corresponding fields, sources, spectral windows, and data columns across datasets using a declared matching mode, including an explicitly supplied override when automatic matching is insufficient.
 
 **Outcome:** The consumer receives the resolved match set. Accepted overrides retain their scope, rationale, source reference, and supersession history.
 
@@ -95,7 +83,7 @@ A subsystem responsible for one of those functions may use an internal adapter t
 
 **Goal:** Register the identity, type, lineage, and location-portable references of an artifact produced or adopted by pipeline work.
 
-**Preconditions:** The payload is available through the pipeline's artifact or data service. The context does not write, transfer, package, or deliver it.
+**Preconditions:** The artifact has been produced and its location is known.
 
 **Outcome:** Internal components can resolve the artifact by stable identity, type, scope, or lineage and associate it with the producing domain outcome.
 
@@ -129,27 +117,27 @@ A subsystem responsible for one of those functions may use an internal adapter t
 
 **Current Pipeline cross-references:** UC-12; GAP-04, GAP-06.
 
-**Actors:** Workflow orchestration layer, internal adapter.
+**Actors:** Workflow orchestration layer.
 
 **Goal:** Identify a closed, compatible set of domain state and artifacts that can be loaded for resume or used as the basis of a targeted rerun.
 
-**Preconditions:** All supplied state is expressed in the internal context model. If it originated in an archive or other external system, another subsystem has already retrieved, interpreted, and normalized it.
+**Preconditions:** The state is expressed in a supported context model and its required artifacts are identifiable.
 
 **Outcome:** The boundary identifies its state versions, required artifacts, and domain provenance. The workflow layer can separately decide which work to schedule, skip, or rerun.
 
 **Alternative flows:** A boundary with incompatible state, missing references, or unverifiable required artifacts is rejected and remains unavailable for resume.
 
-### RADPS-UC10 — Maintain normalized domain decisions
+### RADPS-UC10 — Maintain domain decisions
 
 **Current Pipeline cross-references:** UC-17; GAP-07, GAP-08.
 
-**Actors:** Heuristic, workflow orchestration layer, internal adapter.
+**Actors:** Heuristic, workflow orchestration layer.
 
-**Goal:** Store annotations, matching overrides, or domain-relevant control directives that have already been produced or authorized by an internal pipeline component or another subsystem.
+**Goal:** Store annotations, matching overrides, or domain-relevant control directives supplied through an internal pipeline interface.
 
-**Outcome:** The accepted decision remains available with its scope, rationale, internal producer, optional opaque source reference, effective state, and supersession history.
+**Outcome:** The accepted decision remains available with its scope, rationale, producer, effective state, and supersession history.
 
-**Boundary:** `radps-context` does not provide the operator interface, authenticate a person, decide whether a request is authorized, or enforce workflow control. The workflow layer reads applicable directives and enforces them.
+**Boundary:** The workflow layer, rather than `radps-context`, enforces execution-control directives.
 
 ### RADPS-UC11 — Store and provide domain quality assessments
 
@@ -160,8 +148,6 @@ A subsystem responsible for one of those functions may use an internal adapter t
 **Goal:** Associate a domain quality assessment with the dataset, state version, artifact, or processing scope that it evaluates.
 
 **Outcome:** Subsequent pipeline work can retrieve the assessment and its inputs, method or policy version, producing component, and rationale.
-
-**Boundary:** Human review, release approval, dashboards, and presentation of QA results are external-interface responsibilities.
 
 ### RADPS-UC12 — Maintain domain-specific context extensions
 
@@ -179,17 +165,16 @@ A subsystem responsible for one of those functions may use an internal adapter t
 
 **Current Pipeline cross-references:** UC-15, UC-17, UC-19; GAP-03.
 
-**Actors:** Worker, pipeline task, heuristic, workflow orchestration layer, internal adapter.
+**Actors:** Worker, pipeline task, heuristic, workflow orchestration layer.
 
 **Goal:** Provide a coherent, read-only view of domain state, artifact relationships, domain decisions, QA state, and domain provenance at an identified processing boundary.
 
-**Outcome:** The requesting internal component receives the information and the boundary used remains identifiable. An internal adapter may transform or deliver that information elsewhere, but those actions and their outcomes are not context responsibilities.
+**Outcome:** The requesting pipeline component receives the information and the boundary used remains identifiable.
 
 **Alternative flows:** If the requested boundary is unavailable, the context returns an explicit error; it does not silently substitute the latest state.
 
 ## Capabilities intentionally not modeled as context use cases
 
 - Planning, scheduling, worker dispatch, retry orchestration, and execution history belong to workflow orchestration.
-- Public queries, subscriptions, lifecycle-event delivery, monitoring, and dashboards belong to the external-interface subsystem.
-- Report rendering, provenance-manifest formatting, export packaging, archive ingest and delivery, and storage cleanup belong to other subsystems or pipeline tasks. Those components use UC6 and UC13 when they need context data or need to register a resulting internal artifact.
-- Direct operator and reviewer interactions are not context interactions. Only their normalized, authorized outcomes may enter through an internal adapter.
+- Interfaces from the workflow to external systems are not direct context interactions. GAP-05 in [requirements_and_ownership.md](requirements_and_ownership.md) describes the internal context interface needed to support them.
+- Report generation and product export may read context state or register products, but the context does not perform rendering, packaging, or delivery.

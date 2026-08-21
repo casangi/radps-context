@@ -3,9 +3,7 @@
 ## Overview
 The pipeline context is the central state object used for a pipeline execution. It carries observation metadata, calibration state, imaging state, execution history and state, project metadata, and serves as the primary communication channel between pipeline stages.
 
-This document catalogues the use cases of the current pipeline context as determined by examination of the codebase. The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS.
-
-> **Historical scope:** This document records behavior of the current Pipeline. It does not assign that behavior to `radps-context`. Reporting, export, archive, operator-facing, and other external interactions described here must be reallocated under the RADPS boundary defined in [requirements_and_ownership.md](requirements_and_ownership.md).
+This document catalogues the use cases of the current pipeline context as determined by examination of the [current Pipeline codebase](https://open-bitbucket.nrao.edu/projects/PIPE/repos/pipeline/browse). The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS.
 
 For additional details about the current implementation and reference material, see [Supplementary Analysis](context_current_pipeline_appendix.md).
 
@@ -24,12 +22,12 @@ The following fields are used in each use case:
 
 ---
 
-### UC-01 — Populate, Access, and Provide Observation Metadata
+### UC-01 — Populate, Update, and Provide Access to Observation Metadata
 
 | | |
 |-------|---------|
 | **Actor(s)** | Data import task, any downstream task, heuristics, renderers, QA handlers |
-| **Summary** | The context makes observation metadata (datasets, spectral windows, fields, antennas, scans, and time ranges) available to subsequent processing steps. When processing produces derived or transformed datasets, downstream consumers can distinguish them from their source datasets and determine their lineage. Metadata products produced during import remain available for reuse by later stages. |
+| **Summary** | The context populates its observation metadata structures and provides them to subsequent processing steps. As processing produces derived or transformed datasets, the context updates those structures by registering, replacing, or removing dataset records as appropriate. Downstream consumers can distinguish derived datasets from their sources where origin information is retained, and metadata products produced during import remain available for reuse by later stages. |
 | **Invariant** | Observation metadata for datasets in the accepted processing state remains queryable for the lifetime of the session unless intentionally replaced by a subsequent accepted result. |
 
 ---

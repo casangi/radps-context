@@ -2,15 +2,13 @@
 
 This document contains implementation details and reference material that supplement the use cases in [context_use_cases_current_pipeline.md](context_use_cases_current_pipeline.md). These sections were separated to keep the use-case document focused on requirements.
 
-> **Historical scope:** These notes describe the current Pipeline implementation. They are evidence for design decisions, not an ownership specification for RADPS. External-facing behavior documented here remains outside the future `radps-context` boundary unless an internal contract explicitly requires it.
-
 ---
 
 ## Implementation Notes by Use Case
 
 The following implementation notes describe how selected use cases are realized in the current pipeline codebase. They were separated from the use-case definitions to keep the requirements document focused on requirements; use cases not listed here do not currently have appendix-level implementation notes in this document.
 
-### UC-01 — Populate, Access, and Provide Observation Metadata
+### UC-01 — Populate, Update, and Provide Access to Observation Metadata
 
 **Implementation notes** — `context.observing_run` holds the observation metadata and is the most frequently queried attribute of the context:
 
@@ -253,8 +251,6 @@ Another is ALMA TP / single-dish state, which is array-specific rather than tele
 - `_export_images()` exports calibrator and science images from the context image libraries; the manifest records calibrator and target image products separately.
 - `_make_pipe_manifest()` records CASA version, pipeline version, execution environment, recipe/procedure name, PPR, weblog, commands log, pipeline script, restore script, calibration products, MS products, and exported images.
 - ALMA, VLA, and SD export subclasses add auxiliary products and AQUA reports, then update the manifest. VLA export also handles flat-noise FITS products; NRO export adds its reduction template and calibration file.
-
-This is retained as historical evidence only. RADPS export packaging and delivery are not `radps-context` responsibilities.
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Purpose and boundary
 
-These requirements define guarantees observable through the internal pipeline interfaces of `radps-context`. They do not require a public API, external event feed, dashboard integration, archive protocol, delivery mechanism, or other external interface.
+These requirements define guarantees observable through the internal pipeline interfaces of `radps-context`. They state required behavior without selecting an implementation mechanism or defining interfaces to systems outside the workflow.
 
 ## Requirements
 
@@ -40,8 +40,8 @@ Internal components must be able to determine whether the context information an
 
 ### RADPS-QR9 — Source attribution
 
-For an accepted change whose origin matters to later processing, the context must record the internal producer and affected scope. When an internal adapter submits a normalized request originating outside the pipeline, it may also supply an opaque source identity; authentication and user-identity management remain outside `radps-context`.
+For an accepted change whose origin matters to later processing, the context must record the producing pipeline component and affected scope.
 
 ### RADPS-QR10 — Domain provenance
 
-The context must retain the domain information required to explain how accepted state and artifacts were derived from their inputs. The workflow system owns non-domain execution history; external audit and reproducibility interfaces are outside this component's boundary.
+The context must retain the domain information required to explain how accepted state and artifacts were derived from their inputs. The workflow system owns non-domain execution history.
