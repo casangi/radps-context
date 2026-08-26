@@ -1,15 +1,17 @@
 # Glossary
 
-This glossary defines terms used by the RADPS context use cases, quality requirements, and current Pipeline analysis.
+This glossary defines terms used by the RADPS context use cases, quality requirements, and current Pipeline analysis, with a section at the end for future pipeline terms.
 
 ## RADPS shared terms
 
 - **Artifact**: A durable data product produced or consumed by pipeline work, such as a dataset partition, calibration product, image, or derived metadata product.
 - **Artifact reference**: A location-portable reference that allows a pipeline component to locate an artifact.
 - **Atomic outcome**: A related set of changes that becomes visible in full or has no visible effect.
-- **Context**: The domain state and relationships needed by pipeline work during a run.
+- **Checkpoint**: A processing boundary whose required context state and artifacts have been identified and validated as sufficient for workflow resume.
+- **Context**: The domain state and relationships needed by pipeline work during a run. It is consumed through internal pipeline interfaces and does not itself provide external-system integration.
 - **Context-model version**: The version identifier for context information and the rules used to interpret it.
 - **Domain state**: Processing information whose meaning belongs to the science pipeline, including observation metadata, calibration state, imaging state, quality assessments, domain decisions, and artifact lineage.
+- **Execution-control directive**: An instruction that affects workflow execution, such as pausing, skipping, or rerouting work. `radps-context` may store the directive, while the Workflow system interprets and enforces it.
 - **Internal consumer**: A worker, heuristic, workflow component, or pipeline task that reads context information.
 - **Internal producer**: A worker, heuristic, workflow component, or pipeline task that submits a context update.
 - **Lineage**: Relationships explaining how an artifact or accepted domain state was derived from inputs and upstream products.
@@ -38,3 +40,7 @@ This glossary defines terms used by the RADPS context use cases, quality require
 - **Stage**: A sequential top-level step in a current Pipeline run.
 - **Task**: A registered unit of pipeline work that typically produces a Results object.
 - **Weblog**: The human-readable HTML report generated from current Pipeline context and results.
+
+## Future Pipeline terms
+
+- **External-interface subsystem**: A component outside `radps-context` that handles user-facing APIs, operator tools, dashboards, notifications, archive protocols, product delivery, or other interactions beyond the pipeline. It exchanges normalized requests and responses with internal pipeline interfaces.

@@ -122,10 +122,10 @@ The following gap use cases capture critical system capabilities that are explic
 
 | | |
 |-------|---------|
-| **Actor(s)** | Workflow orchestration layer |
-| **Summary** | The workflow orchestration layer needs timely access to domain state required by external systems, such as QA results and references to produced artifacts, without waiting for offline product files. `radps-context` must expose this information through a workflow-internal interface; communication with external systems is handled outside `radps-context`. |
-| **Invariant** | The workflow orchestration layer can obtain a coherent view of the required domain state while it remains current. |
-| **Postconditions** | The workflow orchestration layer has the domain state needed to provide timely information to external systems. |
+| **Actor(s)** | External-interface subsystem, Workflow system |
+| **Summary** | The future Pipeline must make timely processing information available to external systems without waiting for offline product files. The external-interface subsystem obtains domain state, including QA values and references to produced artifacts, from `radps-context` through its future-pipeline-internal interface and obtains task lifecycle state from the Workflow system. |
+| **Invariant** | `radps-context` remains responsible for domain state, the Workflow system remains responsible for task lifecycle state, and external interactions are handled by the external-interface subsystem. |
+| **Postconditions** | External systems can obtain current processing information through the external-interface subsystem. |
 | **RADPS requirements** | CSS9046, CSS9047, CSS9048, CSS9049, CSS9050, CSS9056 |
 
 ### GAP-06 — Initialization from Intermediate State
@@ -249,8 +249,8 @@ These use cases involve both the workflow manager system and `radps-context` com
 
 **GAP-05 — External System Integration**
 
-* **`radps-context`:** Exposes a workflow-internal interface for reading current domain state, including QA values and references to produced artifacts.
-* **Workflow system:** Uses the internal interface to obtain domain state and is responsible for providing the relevant information to external systems.
+* **`radps-context`:** Exposes a future-pipeline-internal interface through which the External-interface subsystem can read current domain state, including QA values and references to produced artifacts.
+* **Workflow system:** Owns information about when tasks start, finish, or transition states and, if external lifecycle notifications are required, supplies that information to the External-interface subsystem.
 
 **GAP-06 — Initialization from Intermediate State**
 
