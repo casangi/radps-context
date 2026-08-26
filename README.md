@@ -1,6 +1,6 @@
 # radps-context
 
-This repository defines what the RADPS context must provide through internal pipeline interfaces and preserves the analysis of current Pipeline behavior that informed those requirements. Use cases describe required capabilities and observable outcomes; current implementation details are documented separately so they do not prescribe the future RADPS design.
+This repository defines what the RADPS context must provide through internal workflow interfaces and preserves the analysis of current Pipeline behavior that informed those requirements. Use cases describe required capabilities and observable outcomes; current implementation details are documented separately so they do not prescribe the future RADPS design.
 
 ## RADPS Requirements
 

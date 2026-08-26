@@ -1,26 +1,26 @@
 # Glossary
 
-This glossary defines terms used by the RADPS context use cases, quality requirements, and current Pipeline analysis, with a section at the end for future pipeline terms.
+This glossary defines terms used by the RADPS context use cases, quality requirements, and current Pipeline analysis, with a section at the end for future Workflow terms.
 
 ## RADPS shared terms
 
-- **Artifact**: A durable data product produced or consumed by pipeline work, such as a dataset partition, calibration product, image, or derived metadata product.
-- **Artifact reference**: A location-portable reference that allows a pipeline component to locate an artifact.
+- **Artifact**: A durable data product produced or consumed by workflow tasks, such as a dataset partition, calibration product, image, or derived metadata product.
+- **Artifact reference**: A location-portable reference that allows a workflow component to locate an artifact.
 - **Atomic outcome**: A related set of changes that becomes visible in full or has no visible effect.
 - **Checkpoint**: A processing boundary whose required context state and artifacts have been identified and validated as sufficient for workflow resume.
-- **Context**: The domain state and relationships needed by pipeline work during a run. It is consumed through internal pipeline interfaces and does not itself provide external-system integration.
+- **Context**: The domain state and relationships needed by workflow tasks during a run. It is consumed through internal workflow interfaces and does not itself provide external-system integration.
 - **Context-model version**: The version identifier for context information and the rules used to interpret it.
-- **Domain state**: Processing information whose meaning belongs to the science pipeline, including observation metadata, calibration state, imaging state, quality assessments, domain decisions, and artifact lineage.
+- **Domain state**: Processing information whose meaning belongs to science processing, including observation metadata, calibration state, imaging state, quality assessments, domain decisions, and artifact lineage.
 - **Execution-control directive**: An instruction that affects workflow execution, such as pausing, skipping, or rerouting work. `radps-context` may store the directive, while the Workflow system interprets and enforces it.
-- **Internal consumer**: A worker, heuristic, workflow component, or pipeline task that reads context information.
-- **Internal producer**: A worker, heuristic, workflow component, or pipeline task that submits a context update.
+- **Internal consumer**: A worker, heuristic, workflow component, or workflow task that reads context information.
+- **Internal producer**: A worker, heuristic, workflow component, or workflow task that submits a context update.
 - **Lineage**: Relationships explaining how an artifact or accepted domain state was derived from inputs and upstream products.
 - **Matching semantics**: Rules used to determine whether metadata elements across datasets correspond, such as exact, overlap, or partial matching.
 - **Processing boundary**: A consistent, identifiable point in processing that can be used for an internal read, checkpoint, resume, or rerun decision.
 - **Provenance**: Information needed to explain processing. `radps-context` owns domain provenance; workflow orchestration owns non-domain execution history.
-- **Run**: One identifiable instance of pipeline processing from internal initialization through completion or termination.
-- **Stable identifier**: An identity that remains unambiguous for as long as an internal pipeline component references the identified entity.
-- **Workflow orchestration layer**: The system responsible for planning, scheduling, and coordinating pipeline work, including dependency progression, retries, resume, and enforcement of control decisions.
+- **Run**: One identifiable instance of workflow processing from internal initialization through completion or termination.
+- **Stable identifier**: An identity that remains unambiguous for as long as an internal workflow component references the identified entity.
+- **Workflow orchestration layer**: The system responsible for planning, scheduling, and coordinating processing work, including dependency progression, retries, resume, and enforcement of control decisions.
 
 ## Current Pipeline terms
 
@@ -41,6 +41,6 @@ This glossary defines terms used by the RADPS context use cases, quality require
 - **Task**: A registered unit of pipeline work that typically produces a Results object.
 - **Weblog**: The human-readable HTML report generated from current Pipeline context and results.
 
-## Future Pipeline terms
+## Future Workflow terms
 
-- **External-interface subsystem**: A component outside `radps-context` that handles user-facing APIs, operator tools, dashboards, notifications, archive protocols, product delivery, or other interactions beyond the pipeline. It exchanges normalized requests and responses with internal pipeline interfaces.
+- **External-interface subsystem**: A component outside `radps-context` that handles user-facing APIs, operator tools, dashboards, notifications, archive protocols, product delivery, or other interactions beyond the workflow. It exchanges normalized requests and responses with internal workflow interfaces.

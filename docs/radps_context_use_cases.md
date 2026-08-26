@@ -6,10 +6,10 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 ## Actors
 
-- **Workflow orchestration layer**: Plans and coordinates pipeline work and supplies the context with the identifiers needed to correlate domain state with that work.
-- **Worker**: Performs pipeline computation, reads context state, writes artifacts, and submits complete domain outcomes.
-- **Pipeline task**: Performs an internal pipeline operation such as data import, calibration, imaging, QA evaluation, or product preparation.
-- **Heuristic**: Reads domain state and derives processing decisions or mapping proposals under pipeline policy.
+- **Workflow orchestration layer**: Plans and coordinates processing work and supplies the context with the identifiers needed to correlate domain state with that work.
+- **Worker**: Performs processing computation, reads context state, writes artifacts, and submits complete domain outcomes.
+- **Workflow task**: Performs an internal workflow operation such as data import, calibration, imaging, QA evaluation, or product preparation.
+- **Heuristic**: Reads domain state and derives processing decisions or mapping proposals under workflow policy.
 
 ## Use cases
 
@@ -19,11 +19,11 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Actors:** Workflow orchestration layer, data import task.
 
-**Goal:** Establish a run with stable identity and initial domain information, or load compatible persisted context state for internal pipeline use.
+**Goal:** Establish a run with stable identity and initial domain information, or load compatible persisted context state for internal workflow use.
 
 **Preconditions:** The actor supplies an internal run identity, input dataset identities, applicable policy versions, and any initial project information.
 
-**Outcome:** The run and its initial domain state are available to internal pipeline components. The creating component, creation time, inputs, and context model version remain identifiable.
+**Outcome:** The run and its initial domain state are available to internal workflow components. The creating component, creation time, inputs, and context model version remain identifiable.
 
 **Alternative flows:** An incompatible context version, duplicate immutable run identity, or incomplete normalized request is rejected explicitly.
 
@@ -31,9 +31,9 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-01, UC-03.
 
-**Actors:** Pipeline task, worker, heuristic.
+**Actors:** Workflow task, worker, heuristic.
 
-**Goal:** Register and retrieve initial or incremental dataset, observation, and project information needed by pipeline work, including version identity and lineage from transformed datasets to their sources.
+**Goal:** Register and retrieve initial or incremental dataset, observation, and project information needed by workflow tasks, including version identity and lineage from transformed datasets to their sources.
 
 **Outcome:** Internal consumers can obtain a coherent view of the requested datasets, fields, spectral windows, scans, antennas, time ranges, data types, project properties, and derived metadata products. A newly accepted dataset version remains distinguishable from prior versions so workflow orchestration can determine any affected work.
 
@@ -43,7 +43,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-02, UC-18; GAP-08.
 
-**Actors:** Worker, heuristic, pipeline task, workflow orchestration layer.
+**Actors:** Worker, heuristic, workflow task, workflow orchestration layer.
 
 **Goal:** Resolve corresponding fields, sources, spectral windows, and data columns across datasets using a declared matching mode, including an explicitly supplied override when automatic matching is insufficient.
 
@@ -71,7 +71,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Goal:** Record imaging state and image-product references for a declared dataset or processing scope.
 
-**Outcome:** The intended state version and image products are available to dependent pipeline work and linked to their producer and inputs.
+**Outcome:** The intended state version and image products are available to dependent workflow tasks and linked to their producer and inputs.
 
 **Alternative flows:** Invalid scope, inconsistent state, or unavailable required artifacts cause the complete update to be rejected.
 
@@ -79,9 +79,9 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-06, UC-19; GAP-02, GAP-03.
 
-**Actors:** Worker, pipeline task.
+**Actors:** Worker, workflow task.
 
-**Goal:** Register the identity, type, lineage, and location-portable references of an artifact produced or adopted by pipeline work.
+**Goal:** Register the identity, type, lineage, and location-portable references of an artifact produced or adopted by workflow tasks.
 
 **Preconditions:** The artifact has been produced and its location is known.
 
@@ -93,9 +93,9 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-09.
 
-**Actors:** Worker, pipeline task, workflow orchestration layer.
+**Actors:** Worker, workflow task, workflow orchestration layer.
 
-**Goal:** Resolve accepted upstream domain state and artifacts by stable name, type, scope, and optional version for use by dependent pipeline work.
+**Goal:** Resolve accepted upstream domain state and artifacts by stable name, type, scope, and optional version for use by dependent workflow tasks.
 
 **Outcome:** The consumer can bind inputs deterministically, and the exact state and artifact identities used remain traceable.
 
@@ -133,7 +133,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Actors:** Heuristic, workflow orchestration layer.
 
-**Goal:** Store annotations, matching overrides, or domain-relevant control directives supplied through an internal pipeline interface.
+**Goal:** Store annotations, matching overrides, or domain-relevant control directives supplied through an internal workflow interface.
 
 **Outcome:** The accepted decision remains available with its scope, rationale, producer, effective state, and supersession history.
 
@@ -143,19 +143,19 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-16.
 
-**Actors:** QA pipeline task, worker, heuristic.
+**Actors:** QA workflow task, worker, heuristic.
 
 **Goal:** Associate a domain quality assessment with the dataset, state version, artifact, or processing scope that it evaluates.
 
-**Outcome:** Subsequent pipeline work can retrieve the assessment and its inputs, method or policy version, producing component, and rationale.
+**Outcome:** Subsequent workflow tasks can retrieve the assessment and its inputs, method or policy version, producing component, and rationale.
 
 ### RADPS-UC12 — Maintain domain-specific context extensions
 
 **Current Pipeline cross-references:** UC-18.
 
-**Actors:** Workflow orchestration layer, worker, pipeline task.
+**Actors:** Workflow orchestration layer, worker, workflow task.
 
-**Goal:** Store validated telescope-, array-, or domain-specific state without making shared pipeline consumers depend on that extension.
+**Goal:** Store validated telescope-, array-, or domain-specific state without making shared workflow consumers depend on that extension.
 
 **Outcome:** Recognized extension state is available only for its declared run, dataset, or partition scope and remains attributable to its producer.
 
@@ -165,11 +165,11 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-15, UC-17, UC-19; GAP-03.
 
-**Actors:** Worker, pipeline task, heuristic, workflow orchestration layer.
+**Actors:** Worker, workflow task, heuristic, workflow orchestration layer.
 
 **Goal:** Provide a coherent, read-only view of domain state, artifact relationships, domain decisions, QA state, and domain provenance at an identified processing boundary.
 
-**Outcome:** The requesting pipeline component receives the information and the boundary used remains identifiable.
+**Outcome:** The requesting workflow component receives the information and the boundary used remains identifiable.
 
 **Alternative flows:** If the requested boundary is unavailable, the context returns an explicit error; it does not silently substitute the latest state.
 

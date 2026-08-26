@@ -9,7 +9,7 @@ In the current pipeline, all of these capabilities are provided by a single cont
 
 After an initial investigation, `xradio` was not included in this assessment. While the workflow orchestrator can be allocated responsibilities that` radps-context` would otherwise hold, the interactions with `xradio` will be internal to `radps-context` and affect how it fetches, e.g., observation metadata — not what it is responsible for.
 
-`radps-context` will be a software component of RADPS responsible for maintaining and providing access to pipeline processing domain state — including observation metadata, calibration state, imaging state, and produced artifacts — throughout the lifecycle of a pipeline run. The workflow orchestration layer will manage task scheduling, execution, and non-domain-specific state.
+`radps-context` will be a software component of RADPS responsible for maintaining and providing access to processing domain state — including observation metadata, calibration state, imaging state, and produced artifacts — throughout the lifecycle of a workflow run. The workflow orchestration layer will manage task scheduling, execution, and non-domain-specific state.
 
 Based on this evaluation, the use cases are first mapped to RADPS requirements (Section 1). In Section 2, GAP use cases which are required by the RADPS requirements but were not covered by the current context use cases are enumerated. In Section 3, current context use cases not applicable to RADPS that will not be carried forward are documented. Finally, in Section 4, the applicable use cases and gaps are sorted into their designated responsible component. For use cases that were not cleanly separable between `radps-context` and the workflow orchestration, the responsibilities of each component are called out.
 
@@ -104,7 +104,7 @@ The following gap use cases capture critical system capabilities that are explic
 
 | | |
 |-------|---------|
-| **Actor(s)** | Pipeline operator, auditor, reproducibility tooling |
+| **Actor(s)** | Workflow operator, auditor, reproducibility tooling |
 | **Summary** | The system must record sufficient provenance to enable precise reproduction and audit of past runs. This provenance is of two kinds: domain-specific (which datasets, calibrations, and products were derived from which inputs), and execution-environment detail (software versions, task parameters, per-stage execution state, CPU architecture, node/cluster specification, kernel, workload-manager/scheduler configuration, and relevant scheduler limits).
 | **Postconditions** | Any past processing step can be reproduced or audited using the recorded provenance chain. |
 | **RADPS requirements** | ALMA-TR103, ALMA-TR104, ALMA-TR105 |
@@ -113,8 +113,8 @@ The following gap use cases capture critical system capabilities that are explic
 
 | | |
 |-------|---------|
-| **Actor(s)** | Pipeline operator, developer, workflow engine |
-| **Summary** | The context must support selectively re-running one or more mid-pipeline stages with new parameters while preserving unaffected stages. Downstream stages that depend on changed outputs must be invalidated or recomputed. |
+| **Actor(s)** | Workflow operator, developer, workflow engine |
+| **Summary** | The context must support selectively re-running one or more workflow stages with new parameters while preserving unaffected stages. Downstream stages that depend on changed outputs must be invalidated or recomputed. |
 | **Postconditions** | Processing state reflects the re-run outcomes; affected downstream stages are invalidated or updated; unaffected stages remain intact. |
 | **RADPS requirements** | CSS9038 |
 
@@ -123,7 +123,7 @@ The following gap use cases capture critical system capabilities that are explic
 | | |
 |-------|---------|
 | **Actor(s)** | External-interface subsystem, Workflow system |
-| **Summary** | The future Pipeline must make timely processing information available to external systems without waiting for offline product files. The external-interface subsystem obtains domain state, including QA values and references to produced artifacts, from `radps-context` through its future-pipeline-internal interface and obtains task lifecycle state from the Workflow system. |
+| **Summary** | The Workflow must make timely processing information available to external systems without waiting for offline product files. The external-interface subsystem obtains domain state, including QA values and references to produced artifacts, from `radps-context` through its workflow-internal interface and obtains task lifecycle state from the Workflow system. |
 | **Invariant** | `radps-context` remains responsible for domain state, the Workflow system remains responsible for task lifecycle state, and external interactions are handled by the external-interface subsystem. |
 | **Postconditions** | External systems can obtain current processing information through the external-interface subsystem. |
 | **RADPS requirements** | CSS9046, CSS9047, CSS9048, CSS9049, CSS9050, CSS9056 |
@@ -132,18 +132,18 @@ The following gap use cases capture critical system capabilities that are explic
 
 | | |
 |-------|---------|
-| **Actor(s)** | Pipeline operator, archive ingest systems, workflow engine |
-| **Summary** | The context must be initializable from pre-existing archival products so that it appears as a valid mid-pipeline state. This allows the pipeline to skip stages whose outputs are already available (e.g., calibration products archived from a prior run) and resume execution from an intermediate point without reprocessing from scratch. |
-| **Postconditions** | The context reflects a valid mid-pipeline state constructed from ingested archival products. Separately, the workflow engine can identify and skip stages covered by that state. |
+| **Actor(s)** | Workflow operator, archive ingest systems, workflow engine |
+| **Summary** | The context must be initializable from pre-existing archival products so that it appears as a valid intermediate workflow state. This allows the workflow to skip stages whose outputs are already available (e.g., calibration products archived from a prior run) and resume execution from an intermediate point without reprocessing from scratch. |
+| **Postconditions** | The context reflects a valid intermediate workflow state constructed from ingested archival products. Separately, the workflow engine can identify and skip stages covered by that state. |
 | **RADPS requirements** | CSS9038 |
 
 ### GAP-07 — Explicit Tag-Based Execution Control
 
 | | |
 |-------|---------|
-| **Actor(s)** | Pipeline operators, workflow orchestration layer, heuristics |
-| **Summary** | The context must store metadata tags (e.g., `[PAUSE]`, `[SKIP]`) associated with datasets or pipeline stages that actively influence workflow execution and make the information available to the workflow orchestration system.|
-| **Invariant** | Tags affecting execution control are durably recorded in the context and remain readable by the workflow layer throughout the pipeline run. |
+| **Actor(s)** | Workflow operators, workflow orchestration layer, heuristics |
+| **Summary** | The context must store metadata tags (e.g., `[PAUSE]`, `[SKIP]`) associated with datasets or workflow stages that actively influence workflow execution and make the information available to the workflow orchestration system.|
+| **Invariant** | Tags affecting execution control are durably recorded in the context and remain readable by the workflow layer throughout the workflow run. |
 | **Postconditions** | Workflow execution is modified in accordance with persisted tags; any tag-driven halts or diversions are recorded alongside their rationale. |
 | **RADPS requirements** | CSS9037 |
 
@@ -151,7 +151,7 @@ The following gap use cases capture critical system capabilities that are explic
 
 | | |
 |-------|---------|
-| **Actor(s)** | Data import tasks, calibration tasks, imaging tasks, heuristics, pipeline operators |
+| **Actor(s)** | Data import tasks, calibration tasks, imaging tasks, heuristics, workflow operators |
 | **Summary** | Calibration tasks, imaging tasks, and heuristics must be able to match and coordinate data across heterogeneous collections of MSes that may not share native SPW numbering, column layout, or other assumptions. Downstream tasks must be able to select the matching semantics appropriate to their use: calibration tasks require exact SPW matching; imaging tasks require partial/overlap matching (including by frequency or channel range) to combine related spectral windows. Matching must extend beyond SPWs to cover fields, sources, and data column layouts. Where automated matching is ambiguous or fails, heuristics or users must be able to supply explicit mapping rules or override the default matching behavior, with overrides recorded alongside their rationale. |
 | **Invariant** | SPW, field, source, and data-column identity are queryable across all registered datasets, regardless of whether those datasets share native numbering or column layout. |
 | **Postconditions** | Downstream tasks can look up applicable SPWs, fields, sources, and data columns across an arbitrary collection of heterogeneous MSes using the appropriate matching semantics for their use, and any user or heuristic overrides are recorded alongside their rationale. |
@@ -210,7 +210,7 @@ These use cases involve both the workflow manager system and `radps-context` com
 **UC-11 — Support Multiple Orchestration Drivers**
 
 * **`radps-context`:** Needs to be able to be instantiated and remain consistent across multiple different drivers.
-* **Workflow system:** Will likely be what is actually “driving” the various orchestration drivers and kicking off execution of the pipeline tasks.
+* **Workflow system:** Will likely be what is actually “driving” the various orchestration drivers and kicking off execution of the workflow tasks.
 
 **UC-12 — Save and Restore a Processing Session**
 
@@ -244,17 +244,17 @@ These use cases involve both the workflow manager system and `radps-context` com
 
 **GAP-04 — Partial Re-execution / Targeted Stage Re-run**
 
-* **`radps-context`:** Creates a discrete, serializable snapshot of the domain state at any point in the pipeline.
+* **`radps-context`:** Creates a discrete, serializable snapshot of the domain state at any point in the workflow.
 * **Workflow system:** Fetches the context snapshot from just before the stage to be executed and re-triggers only the necessary execution paths.
 
 **GAP-05 — External System Integration**
 
-* **`radps-context`:** Exposes a future-pipeline-internal interface through which the External-interface subsystem can read current domain state, including QA values and references to produced artifacts.
-* **Workflow system:** Owns information about when tasks start, finish, or transition states and, if external lifecycle notifications are required, supplies that information to the External-interface subsystem.
+* **`radps-context`:** Exposes a workflow-internal interface through which the external-interface subsystem can read current domain state, including QA values and references to produced artifacts.
+* **Workflow system:** Owns information about when tasks start, finish, or transition states and, if external lifecycle notifications are required, supplies that information to the external-interface subsystem.
 
 **GAP-06 — Initialization from Intermediate State**
 
-* **`radps-context`:** Uses the pre-processed archival data to instantiate its state as a valid mid-pipeline state.  
+* **`radps-context`:** Uses the pre-processed archival data to instantiate its state as a valid intermediate workflow state.
 * **Workflow system:** Is able to read this context and intelligently skip the prior stages in the task graph. 
 
 **GAP-07 — Explicit Tag-Based Execution Control**
