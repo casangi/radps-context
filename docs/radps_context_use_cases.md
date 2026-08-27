@@ -2,14 +2,14 @@
 
 ## Scope
 
-These use cases define the domain-state operations that `radps-context` exposes to components inside the RADPS workflow. Interfaces from the workflow to external systems are outside this document's scope.
+These use cases define the domain-state operations that `radps-context` exposes to components inside the RADPS Workflow. Interfaces from the Workflow to external systems are outside this document's scope.
 
 ## Actors
 
-- **Workflow orchestration layer**: Plans and coordinates processing work and supplies the context with the identifiers needed to correlate domain state with that work.
-- **Worker**: Performs processing computation, reads context state, writes artifacts, and submits complete domain outcomes.
-- **Workflow task**: Performs an internal workflow operation such as data import, calibration, imaging, QA evaluation, or product preparation.
-- **Heuristic**: Reads domain state and derives processing decisions or mapping proposals under workflow policy.
+- **Workflow Framework**: Orchestrates the Workflow, supplies identifiers that correlate domain state with work, and manages decomposition, scheduling, retries, and checkpoint use without performing domain-specific processing.
+- **Worker**: Executes a node task, reads context state, writes processing outputs, and submits complete domain outcomes.
+- **Node task**: Invokes processing functions as a unit of work assignable to a node, consuming and producing dataset partitions or intermediate artifacts. Examples include data import, calibration, imaging, QA evaluation, and output preparation.
+- **Heuristic**: Reads domain state and derives processing decisions or mapping proposals under Workflow policy.
 
 ## Use cases
 
@@ -17,13 +17,13 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-03, UC-11, UC-12.
 
-**Actors:** Workflow orchestration layer, data import task.
+**Actors:** Workflow Framework, data import node task.
 
-**Goal:** Establish a run with stable identity and initial domain information, or load compatible persisted context state for internal workflow use.
+**Goal:** Establish a run with stable identity and initial domain information, or load compatible persisted context state for internal Workflow use.
 
 **Preconditions:** The actor supplies an internal run identity, input dataset identities, applicable policy versions, and any initial project information.
 
-**Outcome:** The run and its initial domain state are available to internal workflow components. The creating component, creation time, inputs, and context model version remain identifiable.
+**Outcome:** The run and its initial domain state are available to internal Workflow components. The creating component, creation time, inputs, and context-model version remain identifiable.
 
 **Alternative flows:** An incompatible context version, duplicate immutable run identity, or incomplete normalized request is rejected explicitly.
 
@@ -31,11 +31,11 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-01, UC-03.
 
-**Actors:** Workflow task, worker, heuristic.
+**Actors:** Node task, worker, heuristic.
 
-**Goal:** Register and retrieve initial or incremental dataset, observation, and project information needed by workflow tasks, including version identity and lineage from transformed datasets to their sources.
+**Goal:** Register and retrieve initial or incremental dataset, observation, and project information needed by node tasks, including version identity and lineage from transformed datasets to their sources.
 
-**Outcome:** Internal consumers can obtain a coherent view of the requested datasets, fields, spectral windows, scans, antennas, time ranges, data types, project properties, and derived metadata products. A newly accepted dataset version remains distinguishable from prior versions so workflow orchestration can determine any affected work.
+**Outcome:** Internal consumers can obtain a coherent view of the requested datasets, fields, spectral windows, scans, antennas, time ranges, data types, project properties, and derived metadata outputs. A newly accepted dataset version remains distinguishable from prior versions so the Workflow Framework can determine any affected work.
 
 **Alternative flows:** Unknown or ambiguous scopes return an explicit error.
 
@@ -43,7 +43,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-02, UC-18; GAP-08.
 
-**Actors:** Worker, heuristic, workflow task, workflow orchestration layer.
+**Actors:** Worker, heuristic, node task, Workflow Framework.
 
 **Goal:** Resolve corresponding fields, sources, spectral windows, and data columns across datasets using a declared matching mode, including an explicitly supplied override when automatic matching is insufficient.
 
@@ -57,9 +57,9 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Actors:** Worker, calibration task.
 
-**Goal:** Register a complete set of calibration changes, their applicability, and related artifacts as one domain outcome.
+**Goal:** Register a complete set of calibration changes, their applicability, and related processing outputs as one domain outcome.
 
-**Outcome:** Internal consumers observe either the preceding calibration-state version or the new version, never a partial mixture. The update remains linked to its internal producer, inputs, and produced artifacts.
+**Outcome:** Internal consumers observe either the preceding calibration-state version or the new version, never a partial mixture. The update remains linked to its internal producer, inputs, and processing outputs.
 
 **Alternative flows:** An incompatible concurrent update is rejected so the producer can recompute against a current view.
 
@@ -69,35 +69,35 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Actors:** Worker, imaging task.
 
-**Goal:** Record imaging state and image-product references for a declared dataset or processing scope.
+**Goal:** Record imaging state and image-output references for a declared dataset or processing scope.
 
-**Outcome:** The intended state version and image products are available to dependent workflow tasks and linked to their producer and inputs.
+**Outcome:** The intended state version and image outputs are available to dependent node tasks and linked to their producer and inputs.
 
-**Alternative flows:** Invalid scope, inconsistent state, or unavailable required artifacts cause the complete update to be rejected.
+**Alternative flows:** Invalid scope, inconsistent state, or unavailable required outputs cause the complete update to be rejected.
 
-### RADPS-UC6 — Register an artifact with domain lineage
+### RADPS-UC6 — Register a processing output with domain lineage
 
 **Current Pipeline cross-references:** UC-06, UC-19; GAP-02, GAP-03.
 
-**Actors:** Worker, workflow task.
+**Actors:** Worker, node task.
 
-**Goal:** Register the identity, type, lineage, and location-portable references of an artifact produced or adopted by workflow tasks.
+**Goal:** Register the identity, type, lineage, and location-portable references of a processing output produced or adopted by a node task.
 
-**Preconditions:** The artifact has been produced and its location is known.
+**Preconditions:** The processing output has been produced and its location is known.
 
-**Outcome:** Internal components can resolve the artifact by stable identity, type, scope, or lineage and associate it with the producing domain outcome.
+**Outcome:** Internal components can resolve the processing output by stable identity, type, scope, or lineage and associate it with the producing domain outcome.
 
-**Alternative flows:** Registration fails if required references cannot be validated. Repeating an equivalent registration returns the existing logical artifact rather than creating a duplicate.
+**Alternative flows:** Registration fails if required references cannot be validated. Repeating an equivalent registration returns the existing logical processing output rather than creating a duplicate.
 
 ### RADPS-UC7 — Resolve upstream domain outputs
 
 **Current Pipeline cross-references:** UC-09.
 
-**Actors:** Worker, workflow task, workflow orchestration layer.
+**Actors:** Worker, node task, Workflow Framework.
 
-**Goal:** Resolve accepted upstream domain state and artifacts by stable name, type, scope, and optional version for use by dependent workflow tasks.
+**Goal:** Resolve accepted upstream domain state and processing outputs by stable name, type, scope, and optional version for use by dependent node tasks.
 
-**Outcome:** The consumer can bind inputs deterministically, and the exact state and artifact identities used remain traceable.
+**Outcome:** The consumer can bind inputs deterministically, and the exact state and processing-output identities used remain traceable.
 
 **Alternative flows:** Missing, stale, or ambiguous dependencies produce a structured error and are not silently substituted.
 
@@ -105,59 +105,59 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-10, UC-13, UC-14; GAP-01, GAP-02.
 
-**Actors:** Worker, workflow orchestration layer.
+**Actors:** Worker, Workflow Framework.
 
-**Goal:** Give a worker a coherent state view for its scope and accept its complete domain outcome while independent work proceeds concurrently.
+**Goal:** Give a worker a coherent state view for an identified node task and data chunk and accept its complete domain outcome while independent work proceeds concurrently.
 
-**Outcome:** The read boundary and producing work identity remain traceable. Accepted updates become visible atomically; tentative or incomplete work does not change accepted state.
+**Outcome:** The read boundary, node-task identity, and data-chunk identity remain traceable. Accepted updates for independently processed chunks become visible atomically and remain distinguishable so downstream work can combine them deterministically; tentative or incomplete work does not change accepted state.
 
 **Alternative flows:** Conflicting updates are rejected. A retry using the same logical update identity does not duplicate its effect.
 
-### RADPS-UC9 — Create and restore an internal processing boundary
+### RADPS-UC9 — Provide context state for a Checkpoint Record
 
 **Current Pipeline cross-references:** UC-12; GAP-04, GAP-06.
 
-**Actors:** Workflow orchestration layer.
+**Actors:** Workflow Framework.
 
-**Goal:** Identify a closed, compatible set of domain state and artifacts that can be loaded for resume or used as the basis of a targeted rerun.
+**Goal:** Provide a closed, compatible version of domain state and required processing-output references that the Workflow Framework can associate with a Checkpoint Record for rollback, failure restart, resume, or targeted rerun.
 
-**Preconditions:** The state is expressed in a supported context model and its required artifacts are identifiable.
+**Preconditions:** The state is expressed in a supported context model and its required processing outputs are identifiable.
 
-**Outcome:** The boundary identifies its state versions, required artifacts, and domain provenance. The workflow layer can separately decide which work to schedule, skip, or rerun.
+**Outcome:** The processing boundary identifies its context-state versions, required processing outputs, and domain provenance. The Workflow Framework can create a Checkpoint Record that refers to that boundary and separately decide which work to schedule, skip, or rerun.
 
-**Alternative flows:** A boundary with incompatible state, missing references, or unverifiable required artifacts is rejected and remains unavailable for resume.
+**Alternative flows:** A boundary with incompatible state, missing references, unverifiable required outputs, or incomplete domain outcomes is rejected and cannot be used for a Checkpoint Record.
 
 ### RADPS-UC10 — Maintain domain decisions
 
 **Current Pipeline cross-references:** UC-17; GAP-07, GAP-08.
 
-**Actors:** Heuristic, workflow orchestration layer.
+**Actors:** Heuristic, Workflow Framework.
 
-**Goal:** Store annotations, matching overrides, or domain-relevant control directives supplied through an internal workflow interface.
+**Goal:** Store annotations, matching overrides, or domain-relevant control directives supplied through an internal Workflow interface.
 
 **Outcome:** The accepted decision remains available with its scope, rationale, producer, effective state, and supersession history.
 
-**Boundary:** The workflow layer, rather than `radps-context`, enforces execution-control directives.
+**Boundary:** The Workflow Framework, rather than `radps-context`, enforces execution-control directives.
 
 ### RADPS-UC11 — Store and provide domain quality assessments
 
 **Current Pipeline cross-references:** UC-16.
 
-**Actors:** QA workflow task, worker, heuristic.
+**Actors:** QA node task, worker, heuristic.
 
-**Goal:** Associate a domain quality assessment with the dataset, state version, artifact, or processing scope that it evaluates.
+**Goal:** Associate a domain quality assessment with the dataset, state version, processing output, or processing scope that it evaluates.
 
-**Outcome:** Subsequent workflow tasks can retrieve the assessment and its inputs, method or policy version, producing component, and rationale.
+**Outcome:** Subsequent node tasks can retrieve the assessment and its inputs, method or policy version, producing component, and rationale.
 
 ### RADPS-UC12 — Maintain domain-specific context extensions
 
 **Current Pipeline cross-references:** UC-18.
 
-**Actors:** Workflow orchestration layer, worker, workflow task.
+**Actors:** Workflow Framework, worker, node task.
 
-**Goal:** Store validated telescope-, array-, or domain-specific state without making shared workflow consumers depend on that extension.
+**Goal:** Store validated telescope-, array-, or domain-specific state without making shared Workflow consumers depend on that extension.
 
-**Outcome:** Recognized extension state is available only for its declared run, dataset, or partition scope and remains attributable to its producer.
+**Outcome:** Recognized extension state is available only for its declared run, dataset, data-chunk, or partition scope and remains attributable to its producer.
 
 **Alternative flows:** Unknown extension types or state that violates the declared contract are rejected.
 
@@ -165,16 +165,16 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Current Pipeline cross-references:** UC-15, UC-17, UC-19; GAP-03.
 
-**Actors:** Worker, workflow task, heuristic, workflow orchestration layer.
+**Actors:** Worker, node task, heuristic, Workflow Framework.
 
-**Goal:** Provide a coherent, read-only view of domain state, artifact relationships, domain decisions, QA state, and domain provenance at an identified processing boundary.
+**Goal:** Provide a coherent, read-only view of domain state, processing-output relationships, domain decisions, QA state, and domain provenance at an identified processing boundary.
 
-**Outcome:** The requesting workflow component receives the information and the boundary used remains identifiable.
+**Outcome:** The requesting Workflow component receives the information and the boundary used remains identifiable.
 
 **Alternative flows:** If the requested boundary is unavailable, the context returns an explicit error; it does not silently substitute the latest state.
 
 ## Capabilities intentionally not modeled as context use cases
 
-- Planning, scheduling, worker dispatch, retry orchestration, and execution history belong to workflow orchestration.
-- Interfaces from the workflow to external systems are not direct context interactions. GAP-05 in [requirements_and_ownership.md](requirements_and_ownership.md) describes the internal context interface needed to support them.
-- Report generation and product export may read context state or register products, but the context does not perform rendering, packaging, or delivery.
+- Planning, scheduling, worker dispatch, retry coordination, checkpoint management, and non-domain execution history belong to the Workflow Framework.
+- Interfaces from the Workflow to external systems are not direct context interactions. GAP-05 in [requirements_and_ownership.md](requirements_and_ownership.md) describes the internal context interface needed to support them.
+- Report generation and final-data-product export may read context state or register output references, but the context does not perform rendering, packaging, or delivery.

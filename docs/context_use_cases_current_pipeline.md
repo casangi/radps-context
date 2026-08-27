@@ -5,6 +5,8 @@ The pipeline context is the central state object used for a pipeline execution. 
 
 This document catalogues the use cases of the current pipeline context as determined by examination of the [current Pipeline codebase](https://open-bitbucket.nrao.edu/projects/PIPE/repos/pipeline/browse). The goal is to inform the design of a system serving a similar role to the current pipeline context for RADPS.
 
+The actor name **execution driver** is used for the generic role that initiates and coordinates processing; `pipelinedriver` is one concrete software implementation of that role.
+
 For additional details about the current implementation and reference material, see [Supplementary Analysis](context_current_pipeline_appendix.md).
 
 ---
@@ -35,9 +37,9 @@ The following fields are used in each use case:
 ### UC-02 — Cross-MS Metadata Matching and Lookup
 | | |
 |-------|---------|
-| **Actor(s)** | Calibration tasks, imaging tasks, heuristics
-| **Summary** | When multiple MSes are available, downstream tasks can identify corresponding metadata elements across them even when the MSes use different native numbering. Tasks can also find MSes and associated data columns by data type.
-| **Postcondition** | Downstream tasks can resolve corresponding metadata across the available MSes and find MSes and data columns by data type.
+| **Actor(s)** | Calibration tasks, imaging tasks, heuristics |
+| **Summary** | When multiple MSes are available, downstream tasks can identify corresponding metadata elements across them even when the MSes use different native numbering. Tasks can also find MSes and associated data columns by data type. |
+| **Postcondition** | Downstream tasks can resolve corresponding metadata across the available MSes and find MSes and data columns by data type. |
 
 ---
 
@@ -85,7 +87,7 @@ The following fields are used in each use case:
 
 | | |
 |-------|---------|
-| **Actor(s)** | Workflow orchestration layer, tasks, pipeline operators |
+| **Actor(s)** | Execution driver, tasks, pipeline operators |
 | **Summary** | The context must track which processing stage is currently executing and maintain a stable, ordered record of completed stages. Stage identity and ordering must remain coherent across session saves and resumes. |
 | **Invariant** | The currently executing stage is identifiable and completed stages are recorded in stable order. |
 
@@ -95,7 +97,7 @@ ___
 
 | | |
 |-------|---------|
-| **Actor(s)** | Report generators, pipeline operators, workflow orchestration layer |
+| **Actor(s)** | Report generators, pipeline operators, execution driver |
 | **Summary** | The context must preserve a complete execution record for each completed stage, including timing, traceback information, outcomes, and the arguments used to invoke it. This record must support reporting, post-mortem diagnosis of failures, and resumption after interruption. |
 | **Invariant** | Each completed stage retains its full execution record, including identity, outcome, timing, traceback, and invocation arguments, for the lifetime of the session. |
 
@@ -135,7 +137,7 @@ ___
 
 | | |
 |-------|---------|
-| **Actor(s)** | Pipeline operator, workflow orchestration layer, pipeline developer |
+| **Actor(s)** | Pipeline operator, execution driver, pipeline developer |
 | **Summary** | The complete processing state is preservable and later recoverable so processing can resume from the preserved point. Some context-owned references can be relocated, but associated data files and paths must be made consistent with the preserved state before processing resumes. Backward compatibility across pipeline releases is not guaranteed. |
 | **Postcondition** | After recovery, the processing state is operationally equivalent to the preserved state for supported resume workflows, and processing can continue when associated data files are consistent with that state. |
 
@@ -145,7 +147,7 @@ ___
 
 | | |
 |-------|---------|
-| **Actor(s)** | Workflow orchestration layer, parallel worker processes |
+| **Actor(s)** | Execution driver, parallel worker processes |
 | **Summary** | When work is distributed across parallel workers, each worker receives a consistent view of the observation metadata, calibration state, and other processing state required for its work. |
 | **Postcondition** | After distribution, each worker has a consistent view of the processing state for the duration of its work. |
 
@@ -155,7 +157,7 @@ ___
 
 | | |
 |-------|---------|
-| **Actor(s)** | Workflow orchestration layer |
+| **Actor(s)** | Execution driver |
 | **Summary** | After parallel workers complete, the context must collect their individual results and incorporate them into the shared processing state. The aggregation must be safe (no conflicting concurrent writes) and complete before the next sequential step begins. |
 | **Postcondition** | The processing state reflects the combined outcomes of all parallel workers. |
 

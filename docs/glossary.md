@@ -4,23 +4,29 @@ This glossary defines terms used by the RADPS context use cases, quality require
 
 ## RADPS shared terms
 
-- **Artifact**: A durable data product produced or consumed by workflow tasks, such as a dataset partition, calibration product, image, or derived metadata product.
-- **Artifact reference**: A location-portable reference that allows a workflow component to locate an artifact.
 - **Atomic outcome**: A related set of changes that becomes visible in full or has no visible effect.
-- **Checkpoint**: A processing boundary whose required context state and artifacts have been identified and validated as sufficient for workflow resume.
-- **Context**: The domain state and relationships needed by workflow tasks during a run. It is consumed through internal workflow interfaces and does not itself provide external-system integration.
+- **Checkpoint Record**: A record managed by the Workflow Framework that associates a processing boundary with an identifiable context-state version and the processing outputs required for rollback recovery or failure restart.
+- **Context**: A record of accepted domain processing outcomes, relevant QA and heuristic results, and state needed by downstream work. It provides domain state and restart traceability through internal Workflow interfaces but does not own node-task execution or external-system interactions.
 - **Context-model version**: The version identifier for context information and the rules used to interpret it.
-- **Domain state**: Processing information whose meaning belongs to science processing, including observation metadata, calibration state, imaging state, quality assessments, domain decisions, and artifact lineage.
-- **Execution-control directive**: An instruction that affects workflow execution, such as pausing, skipping, or rerouting work. `radps-context` may store the directive, while the Workflow system interprets and enforces it.
-- **Internal consumer**: A worker, heuristic, workflow component, or workflow task that reads context information.
-- **Internal producer**: A worker, heuristic, workflow component, or workflow task that submits a context update.
-- **Lineage**: Relationships explaining how an artifact or accepted domain state was derived from inputs and upstream products.
+- **Data chunk**: An identifiable portion of a dataset assigned to one or more node tasks for data-parallel processing.
+- **Dask**: A parallel and distributed execution framework used by some current Pipeline task queues in development-only configurations and identified as a task-scheduler technology for the Workflow Framework. Logical roles and `radps-context` interfaces remain independent of Dask-specific mechanisms.
+- **Domain state**: Processing information whose meaning belongs to science processing, including observation metadata, calibration state, imaging state, quality assessments, domain decisions, and processing-output lineage.
+- **Execution-control directive**: An instruction that affects Workflow execution, such as pausing, skipping, or rerouting work. `radps-context` may store the directive, while the Workflow Framework interprets and enforces it.
+- **Final data product**: A processing output designated for archive, distribution, or another external consumer.
+- **Intermediate artifact**: A processing output retained for later work, checkpointing, recovery, or other internal use rather than designated as a final data product.
+- **Internal consumer**: A worker, heuristic, Workflow Framework component, or node task that reads context information.
+- **Internal producer**: A worker, heuristic, Workflow Framework component, or node task that submits a context update.
+- **Lineage**: Relationships explaining how a processing output or accepted domain state was derived from inputs and upstream outputs.
 - **Matching semantics**: Rules used to determine whether metadata elements across datasets correspond, such as exact, overlap, or partial matching.
-- **Processing boundary**: A consistent, identifiable point in processing that can be used for an internal read, checkpoint, resume, or rerun decision.
-- **Provenance**: Information needed to explain processing. `radps-context` owns domain provenance; workflow orchestration owns non-domain execution history.
-- **Run**: One identifiable instance of workflow processing from internal initialization through completion or termination.
-- **Stable identifier**: An identity that remains unambiguous for as long as an internal workflow component references the identified entity.
-- **Workflow orchestration layer**: The system responsible for planning, scheduling, and coordinating processing work, including dependency progression, retries, resume, and enforcement of control decisions.
+- **Node task**: A unit of work that can be assigned to a node. It invokes processing functions and consumes and produces dataset partitions or intermediate artifacts.
+- **Output reference**: A location-portable reference that allows a Workflow component to locate a processing output.
+- **Processing boundary**: A consistent, identifiable point in processing that can be used for an internal read or associated with a Checkpoint Record for rollback, restart, resume, or rerun.
+- **Processing output**: A generic term for data or a supporting record produced during the Workflow when its classification as an intermediate artifact or final data product is not relevant or has not yet been established.
+- **Provenance**: Information needed to explain processing. `radps-context` owns domain provenance; the Workflow Framework owns non-domain execution history.
+- **Run**: One identifiable instance of Workflow processing from internal initialization through completion or termination.
+- **Stable identifier**: An identity that remains unambiguous for as long as an internal Workflow component references the identified entity.
+- **Workflow**: An end-to-end data processing procedure for a defined science or operational purpose.
+- **Workflow Framework**: The logical component responsible for orchestrating a Workflow, including work decomposition, dependency progression, node-task scheduling, retries, checkpoint management, restart, and enforcement of control decisions, without owning the domain-specific processing invoked by node tasks.
 
 ## Current Pipeline terms
 
@@ -28,7 +34,7 @@ This glossary defines terms used by the RADPS context use cases, quality require
 - **AQUA**: ALMA QA reporting output used by current export and reporting code.
 - **Calibration table / caltable**: A CASA product storing calibration solutions.
 - **CASA**: Common Astronomy Software Applications; the environment and toolset used by the current Pipeline.
-- **Dask**: A parallel and distributed execution framework used by some current Pipeline task queues (development-only).
+- **Execution driver**: The generic role that initiates and coordinates current Pipeline processing. `pipelinedriver` is one concrete software implementation of this role.
 - **Executor**: The current Pipeline component that runs task jobs and may accept returned results into the shared context.
 - **FITS**: Flexible Image Transport System; a format used for exported image products.
 - **MeasurementSet (MS)**: A radio astronomy dataset format used by CASA and the current Pipeline.
@@ -43,4 +49,4 @@ This glossary defines terms used by the RADPS context use cases, quality require
 
 ## Future Workflow terms
 
-- **External-interface subsystem**: A component outside `radps-context` that handles user-facing APIs, operator tools, dashboards, notifications, archive protocols, product delivery, or other interactions beyond the workflow. It exchanges normalized requests and responses with internal workflow interfaces.
+- **External-interface subsystem**: A component outside `radps-context` that handles interactions between the Workflow and external systems, including user-facing APIs, operator tools, dashboards, notifications, archive protocols, and final-data-product delivery. It exchanges normalized requests and responses with internal Workflow interfaces.

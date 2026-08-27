@@ -1,6 +1,6 @@
 # radps-context
 
-This repository defines what the RADPS context must provide through internal workflow interfaces and preserves the analysis of current Pipeline behavior that informed those requirements. Use cases describe required capabilities and observable outcomes; current implementation details are documented separately so they do not prescribe the future RADPS design.
+This repository defines what the RADPS context must provide through internal Workflow interfaces and preserves the analysis of current Pipeline behavior that informed those requirements. Use cases describe required capabilities and observable outcomes; current implementation details are documented separately so they do not prescribe the future RADPS design.
 
 ## RADPS Requirements
 
@@ -14,7 +14,7 @@ This repository defines what the RADPS context must provide through internal wor
 
 ## Traceability and Responsibility
 
-- [docs/requirements_and_ownership.md](docs/requirements_and_ownership.md): Traceability from current Pipeline capabilities and identified gaps to RADPS requirements, together with responsibility allocation across `radps-context` and workflow orchestration.
+- [docs/requirements_and_ownership.md](docs/requirements_and_ownership.md): Traceability from current Pipeline capabilities and identified gaps to RADPS requirements, together with responsibility allocation across `radps-context` and the Workflow Framework.
 
 ## Reference
 
