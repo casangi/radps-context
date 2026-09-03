@@ -1,5 +1,45 @@
 # RADPS Context Use Cases
 
+This document defines RADPS context use cases. It focuses on domain state, processing-output information, and provenance rather than the orchestration performed by the Workflow Framework or the behavior of the entire Workflow.
+
+## Use-case template
+
+Adapted from “Use Case Modeling” by Kurt Bittner and Ian Spence.
+
+This template is tuned for `radps-context` behavior. A use case should identify:
+
+- the actor goal and direct interaction with `radps-context`
+- the observable domain-state or processing-output outcome
+- any conditions required before the interaction
+- relevant failure, retry, consistency, or ownership boundaries
+
+See also:
+
+- [Requirements and ownership](requirements_and_ownership.md) for current Pipeline UC traceability and responsibility allocation
+- [Current Pipeline context use cases](context_use_cases_current_pipeline.md) for the source use cases
+- [RADPS context quality requirements](radps_context_quality_requirements.md) for cross-cutting behavioral guarantees
+- [Glossary](glossary.md) for shared terminology
+
+Use the following structure. Preconditions, alternative flows, and boundaries may be omitted when they do not apply.
+
+```markdown
+### RADPS-UC<number> — <title>
+
+**Current Pipeline cross-references:** <related current Pipeline use cases and GAPs>
+
+**Actors:** <logical roles that interact directly with `radps-context`>
+
+**Goal:** <outcome sought by the actors>
+
+**Preconditions:** <conditions that must hold before the interaction>
+
+**Outcome:** <observable domain state, processing-output information, or traceability available after completion>
+
+**Alternative flows:** <errors, retries, conflicts, or other deviations>
+
+**Boundary:** <related behavior owned by the Workflow Framework or another component>
+```
+
 ## Scope
 
 These use cases define the domain-state operations that `radps-context` exposes to components inside the RADPS Workflow. Interfaces from the Workflow to external systems are outside this document's scope.
@@ -9,7 +49,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 - **Workflow Framework**: Orchestrates the Workflow, supplies identifiers that correlate domain state with work, and manages decomposition, scheduling, retries, and checkpoint use without performing domain-specific processing.
 - **Worker**: Executes a node task, reads context state, writes processing outputs, and submits complete domain outcomes.
 - **Node task**: Invokes processing functions as a unit of work assignable to a node, consuming and producing dataset partitions or intermediate artifacts. Examples include data import, calibration, imaging, QA evaluation, and output preparation.
-- **Heuristic**: Reads domain state and derives processing decisions or mapping proposals under Workflow policy.
+- **Heuristic**: Reads domain state and applies configured domain rules or algorithms to derive processing decisions or propose mappings between related metadata elements.
 
 ## Use cases
 
@@ -21,11 +61,11 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Goal:** Establish a run with stable identity and initial domain information, or load compatible persisted context state for internal Workflow use.
 
-**Preconditions:** The actor supplies an internal run identity, input dataset identities, applicable policy versions, and any initial project information.
+**Preconditions:** The actor supplies an internal run identity, input dataset identities, and applicable policy versions, together with either any initial project information needed to initialize the run or the persisted context state to restore.
 
-**Outcome:** The run and its initial domain state are available to internal Workflow components. The creating component, creation time, inputs, and context-model version remain identifiable.
+**Outcome:** The run and its initial domain state or resumed persisted context are available to internal Workflow components. The creating component, creation time, inputs, and context-model version remain identifiable.
 
-**Alternative flows:** An incompatible context version, duplicate immutable run identity, or incomplete normalized request is rejected explicitly.
+**Alternative flows:** An incompatible context version or missing required initialization information is rejected explicitly. Repeating initialization for the same run with equivalent information returns the existing run context; attempting to reuse the run identity with conflicting information is rejected.
 
 ### RADPS-UC2 — Provide observation and project metadata
 
@@ -127,7 +167,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Alternative flows:** A boundary with incompatible state, missing references, unverifiable required outputs, or incomplete domain outcomes is rejected and cannot be used for a Checkpoint Record.
 
-### RADPS-UC10 — Maintain domain decisions
+### RADPS-UC10 — Store domain annotations, matching overrides, and control directives
 
 **Current Pipeline cross-references:** UC-17; GAP-07, GAP-08.
 
@@ -173,8 +213,8 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Alternative flows:** If the requested boundary is unavailable, the context returns an explicit error; it does not silently substitute the latest state.
 
-## Capabilities intentionally not modeled as context use cases
+## Capabilities out of scope for radps-context
 
-- Planning, scheduling, worker dispatch, retry coordination, checkpoint management, and non-domain execution history belong to the Workflow Framework.
+- Planning, scheduling, worker dispatch, retry coordination, checkpoint management, and non-domain execution history belong to the Workflow Framework. See [requirements_and_ownership.md](requirements_and_ownership.md) for more information on functionality ownership.
 - Interfaces from the Workflow to external systems are not direct context interactions. GAP-05 in [requirements_and_ownership.md](requirements_and_ownership.md) describes the internal context interface needed to support them.
 - Report generation and final-data-product export may read context state or register output references, but the context does not perform rendering, packaging, or delivery.

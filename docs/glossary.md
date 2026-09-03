@@ -21,7 +21,7 @@ This glossary defines terms used by the RADPS context use cases, quality require
 - **Node task**: A unit of work that can be assigned to a node. It invokes processing functions and consumes and produces dataset partitions or intermediate artifacts.
 - **Output reference**: A location-portable reference that allows a Workflow component to locate a processing output.
 - **Processing boundary**: A consistent, identifiable point in processing that can be used for an internal read or associated with a Checkpoint Record for rollback, restart, resume, or rerun.
-- **Processing output**: A generic term for data or a supporting record produced during the Workflow when its classification as an intermediate artifact or final data product is not relevant or has not yet been established.
+- **Processing output**: A generic term for data or a supporting record produced during a Workflow run when its classification as an intermediate artifact or final data product is not relevant or has not yet been established.
 - **Provenance**: Information needed to explain processing. `radps-context` owns domain provenance; the Workflow Framework owns non-domain execution history.
 - **Run**: One identifiable instance of Workflow processing from internal initialization through completion or termination.
 - **Stable identifier**: An identity that remains unambiguous for as long as an internal Workflow component references the identified entity.
