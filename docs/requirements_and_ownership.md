@@ -85,7 +85,7 @@ The following gap use cases capture critical system capabilities that are explic
 | | |
 |-------|---------|
 | **Actor(s)** | Workflow Framework, task scheduler, workers |
-| **Summary** | The Workflow must support horizontal and vertical scaling through data parallelism. The Workflow Framework schedules identifiable node tasks over dataset chunks so independent work can execute concurrently, while `radps-context` provides chunk-scoped state and accepts complete domain outcomes without allowing conflicting or partial state. This differs from the current parallel-worker pattern, which waits for all work to finish before proceeding. |
+| **Summary** | The Workflow must support horizontal and vertical scaling through data parallelism. The Workflow Framework schedules identifiable node tasks over dataset chunks so independent work can execute concurrently, while `radps-context` provides chunk-scoped state and accepts complete domain-state updates without allowing conflicting or partial state. This differs from the current parallel-worker pattern, which waits for all work to finish before proceeding. |
 | **Invariant** | Each node task and data chunk remains identifiable; independent work may run asynchronously, but incompatible updates cannot produce conflicting state. |
 | **Postconditions** | Accepted chunk-scoped outcomes remain distinguishable and can be combined deterministically before dependent work begins. |
 | **RADPS requirements** | CSS9017, CSS9063, CSS9064.2, CSS9600 |
@@ -177,21 +177,24 @@ UC-02 — Cross-MS Metadata Matching and Lookup
 UC-03 — Store and Provide Project-Level Metadata  
 UC-04 — Register, Query, and Update Calibration State  
 UC-05 — Manage Imaging State  
-UC-10 — Provide a Transient Intra-Stage Workspace  
 UC-16 — Support QA Evaluation and Store Quality Assessments  
 UC-18 — Manage Telescope- and Array-Specific State  
 UC-19 — Provide State for Product Export  
 GAP-08 — Heterogeneous Dataset Coordination and Flexible Matching Semantics
 
-### Workflow Framework only
+### Workflow Framework or node-task execution environment only
 
-UC-07 and UC-08 can be fully satisfied by the Workflow Framework and do not need to be implemented in `radps-context`.
+UC-07, UC-08, and UC-10 can be fully satisfied by the Workflow Framework or node-task execution environment and do not need to be implemented in `radps-context`.
 
 UC-07 — Track Current Execution Progress  
 Tracking current execution progress is core Workflow Framework functionality.
 
 UC-08 — Preserve Per-Stage Execution Record  
 The Workflow Framework maintains detailed node-task execution records as a standard capability.
+
+UC-10 — Provide a Transient Intra-Stage Workspace
+
+The worker or node-task execution environment provides isolated workspace for evaluating tentative changes. `radps-context` exposes accepted state and receives only complete outcomes; it does not host mutable tentative workspace.
 
 ### Workflow Framework and `radps-context` both
 

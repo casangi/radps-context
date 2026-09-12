@@ -12,7 +12,7 @@ A related set of domain-state changes must become visible as one complete outcom
 
 ### RADPS-QR2 — Consistent reads
 
-An internal consumer must receive a coherent view for the run, dataset, data chunk, partition, node task, or processing boundary it requests. A read must not combine mutually incompatible state from before and after a concurrent update.
+An internal consumer must receive a coherent view for the run, dataset, data chunk, node task, or processing boundary it requests. A read must not combine mutually incompatible state from before and after a concurrent update.
 
 ### RADPS-QR3 — Concurrent-update safety
 
