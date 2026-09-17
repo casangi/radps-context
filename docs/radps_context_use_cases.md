@@ -21,7 +21,7 @@ See also:
 - [RADPS context quality requirements](radps_context_quality_requirements.md) for cross-cutting behavioral guarantees
 - [Glossary](glossary.md) for shared terminology
 
-Use the following structure. Stakeholders may be omitted when the direct actors are also the immediate beneficiaries. Preconditions, alternative flows, and boundaries may be omitted when they do not apply.
+Use the following structure. Stakeholders may be omitted when the direct actors are also the immediate beneficiaries. Preconditions, alternative flows, boundaries, and notes may be omitted when they do not apply.
 
 ```markdown
 ### RADPS-UC<number> — <title>
@@ -41,6 +41,8 @@ Use the following structure. Stakeholders may be omitted when the direct actors 
 **Alternative flows:** <errors, retries, conflicts, or other deviations>
 
 **Boundary:** <related behavior owned by the Workflow Framework or another component>
+
+**Notes:** <design guidance, allocation alternatives, or other context>
 ```
 
 ## Scope
@@ -54,7 +56,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 - **Workflow user**: Requests science processing, supplies applicable science or project information, or consumes the resulting information and products.
 - **Workflow operator**: Initiates, configures, monitors, recovers, or otherwise controls Workflow execution through Workflow-owned interfaces.
 - **Workflow developer**: Develops, tests, or diagnoses Workflow processing and its domain-state interactions.
-- **External consumer**: A person or system that obtains Workflow information or products through an external-interface subsystem rather than by calling `radps-context` directly.
+- **External consumer**: A person or system that obtains Workflow information or products through an external interface component rather than by calling `radps-context` directly.
 
 ### Direct actors
 
@@ -63,8 +65,8 @@ These use cases define the domain-state operations that `radps-context` exposes 
 - **Node task**: Invokes processing functions as a unit of work assignable to a node, consuming and producing data chunks or intermediate artifacts. Examples include data import, calibration, imaging, QA evaluation, and output preparation.
 - **Heuristic**: Reads domain state and applies configured domain rules or algorithms to derive processing decisions or propose mappings between related metadata elements.
 - **Reporting component**: An internal component that retrieves context information to generate reports for Workflow stakeholders.
-- **External-interface subsystem**: A component that retrieves context information through an internal Workflow interface and handles communication with external consumers.
-- **Diagnostic client**: An internal Workflow diagnostic or test component used by developers, operators, or CI systems to retrieve context state for inspection and diagnosis.
+- **External interface component**: A component that retrieves context information through an internal Workflow interface and handles communication with external consumers.
+- **Diagnostic component**: An internal Workflow or test component used by developers, operators, or CI systems to inspect context state for diagnosis.
 
 ## Use cases
 
@@ -86,7 +88,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 ### RADPS-UC2 — Provide observation metadata
 
-**Current Pipeline cross-references:** UC-01.
+**Current Pipeline cross-references:** UC-01; GAP-08.
 
 **Stakeholders:** Workflow user.
 
@@ -97,6 +99,8 @@ These use cases define the domain-state operations that `radps-context` exposes 
 **Outcome:** Internal consumers can obtain a coherent view of the requested datasets, fields, spectral windows, scans, antennas, time ranges, data types, and derived metadata outputs. A newly accepted dataset version remains distinguishable from prior versions so the Workflow Framework can determine any affected work.
 
 **Alternative flows:** A request that does not identify a known, unique dataset, dataset version, or observation metadata element returns an explicit error.
+
+**Notes:** Cross-dataset mappings supplied as Workflow inputs may be registered and retrieved as observation metadata under this use case. Prefer deriving and validating these mappings during input preparation; in this flow, `radps-context` stores the accepted mappings rather than inferring them.
 
 ### RADPS-UC3 — Provide project metadata
 
@@ -124,9 +128,11 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Outcome:** The consumer receives the resolved match set. Accepted overrides retain their scope, rationale, source reference, and supersession history.
 
-**Alternative flows:** If the declared matching mode produces multiple valid candidates, `radps-context` returns a structured ambiguity result containing those candidates without accepting a match. A conflicting or invalid override returns a structured error and leaves the accepted state unchanged.
+**Alternative flows:** If the declared matching mode produces multiple valid candidates, `radps-context` returns a structured result that marks the match as ambiguous and lists the candidates; it does not accept a match. A conflicting or invalid override returns a structured error and leaves the accepted state unchanged.
 
 **Boundary:** The Workflow Framework determines how to resolve an ambiguous result, such as applying a configured override, invoking a heuristic, requesting operator input when available, or failing the affected work. `radps-context` does not choose among ambiguous candidates.
+
+**Notes:** Use context-based matching when an authoritative mapping was not supplied upstream and processing requires runtime resolution. The preferred flow is to derive and validate mappings during input preparation and register them as observation metadata under RADPS-UC2.
 
 ### RADPS-UC5 — Apply a calibration-state update
 
@@ -214,7 +220,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Direct actors:** Workflow Framework.
 
-**Goal:** Enable an operator or automated recovery policy to restore accepted domain state from a recorded processing boundary during the current or a later Workflow invocation for rollback, failure restart, resume, or targeted rerun.
+**Goal:** Enable operator-initiated or automated restoration of accepted domain state from a recorded processing boundary during the current or a later Workflow invocation, supporting rollback, failure restart, resume, or targeted rerun.
 
 **Preconditions:** The Workflow Framework identifies the processing boundary to preserve or restore. The boundary’s state is compatible with a supported context-model version, and all required processing outputs are identifiable and retrievable.
 
@@ -270,7 +276,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Stakeholders:** Workflow user, Workflow operator, external consumer.
 
-**Direct actors:** Worker, node task, heuristic, Workflow Framework, reporting component, external-interface subsystem.
+**Direct actors:** Worker, node task, heuristic, Workflow Framework, reporting component, external interface component.
 
 **Goal:** Provide a coherent, read-only view of domain state, processing-output relationships, domain decisions, QA state, and domain provenance at an identified processing boundary.
 
@@ -278,7 +284,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Alternative flows:** If the requested boundary is unavailable, the context returns an explicit error; it does not silently substitute the latest state.
 
-**Boundary:** Reporting, export, and external-interface components determine how to present or deliver the retrieved information. `radps-context` provides the internal read interface but does not render reports, package products, or communicate directly with external consumers.
+**Boundary:** Reporting, export, and external interface components determine how to present or deliver the retrieved information. `radps-context` provides the internal read interface but does not render reports, package products, or communicate directly with external consumers.
 
 ### RADPS-UC15 — Inspect domain state for diagnosis
 
@@ -286,11 +292,11 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Stakeholders:** Workflow developer, Workflow operator.
 
-**Direct actors:** Diagnostic client, Workflow Framework.
+**Direct actors:** Diagnostic component, Workflow Framework.
 
 **Goal:** Inspect accepted domain state and domain-specific processing outputs at the current or an identified historical processing boundary during execution or after a failure.
 
-**Outcome:** The diagnostic client can inspect registered datasets, calibration and imaging state, quality assessments, domain decisions, processing-output relationships, and provenance. The accepted state boundary associated with failed work remains identifiable and available for post-mortem analysis.
+**Outcome:** The diagnostic component can inspect registered datasets, calibration and imaging state, quality assessments, domain decisions, processing-output relationships, and provenance. The accepted state boundary associated with failed work remains identifiable and available for post-mortem analysis.
 
 **Alternative flows:** If the requested state boundary is unavailable, `radps-context` returns an explicit error rather than silently substituting another boundary.
 
@@ -300,4 +306,4 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 - Planning, scheduling, worker dispatch, retry coordination, checkpoint management, and non-domain execution history belong to the Workflow Framework. See [requirements_and_ownership.md](requirements_and_ownership.md) for more information on functionality ownership.
 - Interfaces from the Workflow to external systems are not direct context interactions. GAP-05 in [requirements_and_ownership.md](requirements_and_ownership.md) describes the internal context interface needed to support them.
-- Report generation and final-data-product export may read context state or register output references, but the context does not perform rendering, packaging, or delivery.
+- Internal reporting and final-data-product export components may read context state or register output references, but `radps-context` does not perform rendering, packaging, or delivery.

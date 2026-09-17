@@ -9,13 +9,13 @@ This glossary defines terms used by the RADPS context use cases, quality require
 - **Context**: A record of accepted domain processing outcomes, relevant QA and heuristic results, and state needed by downstream work. It provides domain state and restart traceability through internal Workflow interfaces but does not own node-task execution or external-system interactions.
 - **Context-model version**: The version identifier for context information and the rules used to interpret it.
 - **Data chunk**: An identifiable portion of a dataset assigned to one or more node tasks for data-parallel processing.
-- **Diagnostic client**: An internal Workflow diagnostic or test component used by developers, operators, or CI systems to retrieve context state for inspection and diagnosis.
+- **Diagnostic component**: An internal Workflow or test component used by developers, operators, or CI systems to inspect context state for diagnosis.
 - **Dask**: A parallel and distributed execution framework used by some current Pipeline task queues in development-only configurations and identified as a task-scheduler technology for the Workflow Framework. Logical roles and `radps-context` interfaces remain independent of Dask-specific mechanisms.
 - **Domain state**: Processing information whose meaning belongs to science processing, including observation metadata, calibration state, imaging state, quality assessments, domain decisions, and processing-output lineage.
 - **Execution-control directive**: An instruction that affects Workflow execution, such as pausing, skipping, or rerouting work. `radps-context` may store the directive, while the Workflow Framework interprets and enforces it.
 - **Final data product**: A processing output designated for archive, distribution, or another external consumer.
 - **Intermediate artifact**: A processing output retained for later work, checkpointing, recovery, or other internal use rather than designated as a final data product.
-- **Internal consumer**: A worker, heuristic, Workflow Framework component, node task, reporting component, external-interface subsystem, or diagnostic client that reads context information.
+- **Internal consumer**: A worker, heuristic, Workflow Framework component, node task, reporting component, external interface component, or diagnostic component that reads context information.
 - **Internal producer**: A worker, heuristic, Workflow Framework component, or node task that submits a context update.
 - **Lineage**: Relationships explaining how a processing output or accepted domain state was derived from inputs and upstream outputs.
 - **Matching semantics**: Rules used to determine whether metadata elements across datasets correspond, such as exact, overlap, or partial matching.
@@ -52,4 +52,4 @@ This glossary defines terms used by the RADPS context use cases, quality require
 
 ## Future Workflow terms
 
-- **External-interface subsystem**: A component outside `radps-context` that handles interactions between the Workflow and external systems, including user-facing APIs, operator tools, dashboards, notifications, archive protocols, and final-data-product delivery. It exchanges normalized requests and responses with internal Workflow interfaces.
+- **External interface component**: A component outside `radps-context` that handles interactions between the Workflow and external systems, including user-facing APIs, operator tools, dashboards, notifications, archive protocols, and final-data-product delivery. It exchanges normalized requests and responses with internal Workflow interfaces.

@@ -122,19 +122,19 @@ The following gap use cases capture critical system capabilities that are explic
 
 | | |
 |-------|---------|
-| **Actor(s)** | External-interface subsystem, Workflow Framework |
-| **Summary** | The Workflow must make timely processing information available to external systems without waiting for offline output files. The external-interface subsystem obtains domain state, including QA values and processing-output references, from `radps-context` through its Workflow-internal interface and obtains node-task lifecycle state from the Workflow Framework. |
-| **Invariant** | `radps-context` remains responsible for domain state, the Workflow Framework remains responsible for node-task lifecycle state, and external interactions are handled by the external-interface subsystem. |
-| **Postconditions** | External systems can obtain current processing information through the external-interface subsystem. |
+| **Actor(s)** | External interface component, Workflow Framework |
+| **Summary** | The Workflow must make timely processing information available to external systems without waiting for offline output files. The external interface component obtains domain state, including QA values and processing-output references, from `radps-context` through its Workflow-internal interface and obtains node-task lifecycle state from the Workflow Framework. |
+| **Invariant** | `radps-context` remains responsible for domain state, the Workflow Framework remains responsible for node-task lifecycle state, and external interactions are handled by the external interface component. |
+| **Postconditions** | External systems can obtain current processing information through the external interface component. |
 | **RADPS requirements** | CSS9046, CSS9047, CSS9048, CSS9049, CSS9050, CSS9056 |
 
 ### GAP-06 — Initialization from Intermediate State
 
 | | |
 |-------|---------|
-| **Actor(s)** | Workflow operator, archive ingest systems, Workflow Framework |
-| **Summary** | The context must be initializable from pre-existing archival data so that it represents valid intermediate domain state for the Workflow. The Workflow Framework can associate that state with a Checkpoint Record, identify node tasks already covered by the state, and resume without reprocessing from scratch. |
-| **Postconditions** | The context reflects valid intermediate domain state constructed from the supplied data. Separately, the Workflow Framework can identify and skip node tasks covered by that state. |
+| **Actor(s)** | Workflow operator, ingest component, Workflow Framework |
+| **Summary** | The context must be initializable from supported pre-existing processing products, whether obtained from the ALMA Archive or another persisted source, so that it represents valid intermediate domain state for the Workflow. The Workflow Framework can associate that state with a Checkpoint Record, identify node tasks already covered by the state, and resume without reprocessing from scratch. |
+| **Postconditions** | The context reflects valid intermediate domain state constructed from the supplied processing products. Separately, the Workflow Framework can identify and skip node tasks covered by that state. |
 | **RADPS requirements** | CSS9038 |
 
 ### GAP-07 — Explicit Tag-Based Execution Control
@@ -179,8 +179,7 @@ UC-04 — Register, Query, and Update Calibration State
 UC-05 — Manage Imaging State  
 UC-16 — Support QA Evaluation and Store Quality Assessments  
 UC-18 — Manage Telescope- and Array-Specific State  
-UC-19 — Provide State for Product Export  
-GAP-08 — Heterogeneous Dataset Coordination and Flexible Matching Semantics
+UC-19 — Provide State for Product Export
 
 ### Workflow Framework or node-task execution environment only
 
@@ -252,18 +251,24 @@ These use cases involve both the Workflow Framework and `radps-context`. Respons
 
 **GAP-05 — External System Integration**
 
-* **`radps-context`:** Exposes a Workflow-internal interface through which the external-interface subsystem can read current domain state, including QA values and processing-output references.
-* **Workflow Framework:** Owns information about when node tasks start, finish, or transition states and, if external lifecycle notifications are required, supplies that information to the external-interface subsystem.
+* **`radps-context`:** Exposes a Workflow-internal interface through which the external interface component can read current domain state, including QA values and processing-output references.
+* **Workflow Framework:** Owns information about when node tasks start, finish, or transition states and, if external lifecycle notifications are required, supplies that information to the external interface component.
 
 **GAP-06 — Initialization from Intermediate State**
 
-* **`radps-context`:** Uses pre-processed archival data to instantiate a valid intermediate domain state.
+* **`radps-context`:** Uses normalized, pre-existing processing products to instantiate valid intermediate domain state.
 * **Workflow Framework:** Associates that state with a Checkpoint Record and skips node tasks whose accepted outcomes are already represented.
 
 **GAP-07 — Explicit Tag-Based Execution Control**
 
 * **`radps-context`:** Stores execution-control tags (e.g., `[PAUSE]`) so they can be persisted on datasets.  
 * **Workflow Framework:** Queries these metadata tags before node-task execution and enforces the logic (e.g., halting the Workflow or altering reporting paths).
+
+**GAP-08 — Heterogeneous Dataset Coordination and Flexible Matching Semantics**
+
+* **Upstream input-preparation component:** Preferably derives and validates cross-dataset mappings before processing and supplies them as Workflow inputs.
+* **`radps-context`:** Stores and provides accepted supplied mappings as observation metadata. When runtime resolution is explicitly required, it applies the declared matching semantics and records accepted overrides.
+* **Workflow Framework:** Supplies accepted mappings to `radps-context` and determines how unresolved or ambiguous matching affects Workflow execution.
 
 ## Referenced documents:
 The following documents were used to determine the relevant RADPS use cases:
