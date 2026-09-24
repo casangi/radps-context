@@ -296,7 +296,7 @@ These use cases define the domain-state operations that `radps-context` exposes 
 
 **Goal:** Inspect accepted domain state and domain-specific processing outputs at the current or an identified historical processing boundary during execution or after a failure.
 
-**Outcome:** The diagnostic component can inspect registered datasets, calibration and imaging state, quality assessments, domain decisions, processing-output relationships, and provenance. The accepted state boundary associated with failed work remains identifiable and available for post-mortem analysis.
+**Outcome:** The diagnostic component can inspect registered datasets, calibration and imaging state, quality assessments, domain decisions, processing-output relationships, and provenance. The accepted state used by the failed work remains identifiable and available for post-mortem analysis.
 
 **Alternative flows:** If the requested state boundary is unavailable, `radps-context` returns an explicit error rather than silently substituting another boundary.
 
